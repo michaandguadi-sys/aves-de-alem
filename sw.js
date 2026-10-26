@@ -2,7 +2,7 @@
    shell: network-first (updates arrive, works offline) · data/: cache-first, versioned
    BirdNET model, libraries, fonts: cache-first forever · iNaturalist + Wikipedia API: stale-while-revalidate
    photos and map tiles: cache-first with size limits */
-const V = 'v8';
+const V = 'v9';
 const SHELL = 'shell-' + V, MODEL = 'model-v24', DATA = 'data-w1', API = 'api-v2', IMG = 'img-v2', TILE = 'tile-v1';
 const SHELL_FILES = ['./index.html', './i18n.js', './guide.js', './world.js', './app.js', './worker.js', './manifest.webmanifest', './icon.svg', './icon-192.png', './icon-512.png', './icon-180.png'];
 
@@ -51,7 +51,7 @@ self.addEventListener('fetch', e => {
   const req = e.request;
   if (req.method !== 'GET') return;
   const u = new URL(req.url);
-  if (u.host === 'raw.githubusercontent.com' || u.host === 'cdn.jsdelivr.net' || u.host === 'cdnjs.cloudflare.com' || u.host.startsWith('fonts.g')) {
+  if (u.host === 'raw.githubusercontent.com' || u.host === 'cdn.jsdelivr.net' || u.host === 'unpkg.com' || u.host.startsWith('fonts.g')) {
     e.respondWith(cacheFirst(req, MODEL));
     return;
   }
