@@ -2,7 +2,7 @@
    shell: network-first (updates arrive, works offline) · data/: cache-first, versioned
    BirdNET model, libraries, fonts: cache-first forever · iNaturalist + Wikipedia API: stale-while-revalidate
    photos and map tiles: cache-first with size limits */
-const V = 'v12';
+const V = 'v13';
 const SHELL = 'shell-' + V, MODEL = 'model-v24', DATA = 'data-w1', API = 'api-v2', IMG = 'img-v2', TILE = 'tile-v1';
 const SHELL_FILES = ['./index.html', './i18n.js', './guide.js', './world.js', './app.js', './worker.js', './manifest.webmanifest', './icon.svg', './icon-192.png', './icon-512.png', './icon-180.png'];
 

@@ -262,7 +262,7 @@ $('#exSort').onclick=()=>{exSort=exSort==='seen'?'group':'seen';LS.set('exSort',
 function localFirst(q){const pool=guidePool.length?guidePool:Object.values(GUIDE).map(g=>({sci:g.sci,es:NM(g),n:0,sub:''}));const t=fold(q).split(/\s+/).filter(Boolean);
   const hit=pool.filter(x=>{const f=fold(x.sci+' '+x.es+' '+(GUIDE[x.sci]?GUIDE[x.sci].en+' '+GUIDE[x.sci].es:''));return t.every(w=>f.includes(w))}).sort((p,q)=>(q.n||0)-(p.n||0)).slice(0,40);
   if(!hit.length)return;const box=$('#exploreList'),mine=mySpecies();
-  box.insertAdjacentHTML('afterbegin',`<h3 style="margin:4px 4px 6px">Around you <span class="cnt">${hit.length}</span></h3><div class="list" style="margin-bottom:6px">${hit.map(i=>birdRow(i,mine,0)).join('')}</div><h3 style="margin:10px 4px 6px">Worldwide</h3>`);hydratePhotos(box)}
+  box.insertAdjacentHTML('afterbegin',`<h3 style="margin:4px 4px 6px">Around you <span class="cnt">${hit.length}</span></h3><div class="bgrid" style="margin-bottom:6px">${hit.map(i=>birdTile(i,mine,0)).join('')}</div><h3 style="margin:10px 4px 6px">Worldwide</h3>`);hydratePhotos(box)}
 $('#exploreMore').onclick=()=>{};
 async function getInatLocal(days=0){const k=`${loc.lat},${loc.lon},${I18N.lang},${RADIUS},${days}`;if(exploreCache[k])return exploreCache[k];
   const ck='local:'+k,c=LS.get(ck,null);if(c&&Date.now()-c.t<(days?0.5:3)*86400e3)return exploreCache[k]=c.d;const d1=days?'&d1='+new Date(Date.now()-days*864e5).toISOString().slice(0,10):'';
@@ -295,14 +295,15 @@ async function loadExplore(){const hint=$('#exploreHint'),box=$('#exploreList');
     renderExplore()}catch(e){box.innerHTML=`<div class="empty">Could not load (${esc(e.message)}). Offline? The Guide list works offline.</div>`}}
 const ABL={common:'Common',uncommon:'Uncommon',few:'Few records'};
 function birdRow(i,mine,rank){return `<button class="brow" data-sci="${esc(i.sci)}">${rank?`<span class="rank" translate="no">${rank}</span>`:''}<img ${i.img?`src="${esc(i.img)}"`:`data-photo="${esc(i.sci)}"`} loading="lazy" alt=""><div class="t"><b>${esc(i.es)}${mine.has(i.sci)?'<span class="mine" title="In your collection">✓</span>':''}</b><small><i>${esc(i.sci)}</i>${i.ab&&i.n?` · <span>${ABL[i.ab]}</span>`:''}${i.sub?` · <span>${esc(i.sub)}</span>`:''}</small>${GUIDE[i.sci]&&exploreSrc!=='guide'?'<small><span class="dot"></span>guide notes</small>':''}</div><span class="chev">›</span></button>`}
+function birdTile(i,mine,rank){return `<button class="btile" data-sci="${esc(i.sci)}"><img ${i.img?`src="${esc(i.img)}"`:`data-photo="${esc(i.sci)}"`} loading="lazy" alt="">${rank?`<span class="rk" translate="no">${rank}</span>`:''}${mine.has(i.sci)?'<span class="mk" title="In your collection">✓</span>':''}<div class="t"><b>${esc(i.es)}</b><small class="sci">${esc(i.sci)}</small><small>${i.ab&&i.n?`<span>${ABL[i.ab]}</span>`:GUIDE[i.sci]?'<span>field notes</span>':''}${i.n?` <span translate="no">· ${i.n}</span>`:''}</small></div></button>`}
 function renderExplore(){if(exploreSrc==='world')return renderWorld();const box=$('#exploreList'),mine=mySpecies();
   $('#exSort').hidden=false;$('#exSort').textContent=exSort==='seen'?'↓ Most seen':'↓ By group';
   let body;
   if(!exploreItems.length)body='<div class="empty">No birds match this filter.</div>';
-  else if(exSort==='seen'){const L=[...exploreItems].sort((p,q)=>(q.n||0)-(p.n||0));body=`<div class="list">${L.map((i,k)=>birdRow(i,mine,k+1)).join('')}</div>`}
+  else if(exSort==='seen'){const L=[...exploreItems].sort((p,q)=>(q.n||0)-(p.n||0));body=`<div class="bgrid">${L.map((i,k)=>birdTile(i,mine,k+1)).join('')}</div>`}
   else{const groups=new Map();exploreItems.forEach(i=>{const [gi,gn]=groupOf(i.sci);if(!groups.has(gn))groups.set(gn,{gi,items:[]});groups.get(gn).items.push(i)});
     const sorted=[...groups.entries()].sort((a,b)=>a[1].gi-b[1].gi||a[0].localeCompare(b[0]));
-    body=`<div class="jump hscroll">${sorted.map(([n],i)=>`<button class="chip" data-jump="g${i}">${esc(n)}</button>`).join('')}</div>`+sorted.map(([n,g],i)=>`<section class="grp" id="g${i}"><h3>${esc(n)} <span class="cnt">${g.items.length}</span></h3><div class="list">${g.items.map(x=>birdRow(x,mine,0)).join('')}</div></section>`).join('')}
+    body=`<div class="jump hscroll">${sorted.map(([n],i)=>`<button class="chip" data-jump="g${i}">${esc(n)}</button>`).join('')}</div>`+sorted.map(([n,g],i)=>`<section class="grp" id="g${i}"><h3>${esc(n)} <span class="cnt">${g.items.length}</span></h3><div class="bgrid">${g.items.map(x=>birdTile(x,mine,0)).join('')}</div></section>`).join('')}
   box.innerHTML=body+`<button class="cell browse" data-nav="root"><span class="grow"><b>Browse all birds of the world</b><br><span class="small muted">${WORLD.ready?WORLD.s.length.toLocaleString():'11,004'} species by order and family</span></span><svg class="chev" width="8" height="14" viewBox="0 0 8 14"><path d="M1 1l6 6-6 6" stroke="currentColor" stroke-width="2" fill="none" stroke-linecap="round"/></svg></button>`;
   hydratePhotos(box)}
 $('#exploreList').addEventListener('click',e=>{const j=e.target.closest('[data-jump]');if(j){const t=document.getElementById(j.dataset.jump);if(t)window.scrollTo({top:t.getBoundingClientRect().top+scrollY-70,behavior:'smooth'});return}
