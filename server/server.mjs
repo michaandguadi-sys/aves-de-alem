@@ -92,6 +92,17 @@ Write in ${lang === 'es' ? 'Spanish (Argentina)' : 'English'}. Use these heading
   return { text: out, cached: false };
 }
 
+// Client IP for rate limits. Never trust a client-sent X-Real-IP. The relay is only reachable
+// through Traefik on the private Docker network; Traefik appends the real peer address as the
+// LAST X-Forwarded-For entry, which a client cannot forge. Direct callers use the socket address.
+const PRIVATE = /^(::ffff:)?(10\.|172\.(1[6-9]|2\d|3[01])\.|192\.168\.|127\.)|^::1$/;
+function clientIp(req) {
+  const peer = req.socket.remoteAddress || '';
+  if (!PRIVATE.test(peer)) return peer;
+  const xff = String(req.headers['x-forwarded-for'] || '').split(',').map(s => s.trim()).filter(Boolean);
+  return xff.length ? xff[xff.length - 1] : peer;
+}
+
 function send(res, code, obj) {
   res.writeHead(code, { 'content-type': 'application/json', 'cache-control': 'no-store', 'x-content-type-options': 'nosniff' });
   res.end(JSON.stringify(obj));
@@ -109,10 +120,10 @@ http.createServer(async (req, res) => {
     if (path === '/api/notes') {
       const sci = String(body.sci || ''); const lang = body.lang === 'es' ? 'es' : 'en';
       const cachedFile = `${CACHE}/notes/${lang}/${sci.replace(' ', '_')}.txt`;
-      if (!(SCI.test(sci) && existsSync(cachedFile))) { const lim = allow(req.headers['x-real-ip'] || req.socket.remoteAddress); if (lim) return send(res, 429, { error: lim }); }
+      if (!(SCI.test(sci) && existsSync(cachedFile))) { const lim = allow(clientIp(req)); if (lim) return send(res, 429, { error: lim }); }
       return send(res, 200, await notes(body));
     }
-    const lim = allow(req.headers['x-real-ip'] || req.socket.remoteAddress); if (lim) return send(res, 429, { error: lim });
+    const lim = allow(clientIp(req)); if (lim) return send(res, 429, { error: lim });
     return send(res, 200, { text: await identify(body) });
   } catch (e) {
     console.error(new Date().toISOString(), e.message);
