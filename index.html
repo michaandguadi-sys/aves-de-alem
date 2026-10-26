@@ -189,6 +189,38 @@ details[open]>summary .chev{transform:rotate(90deg)}
 .leaflet-container{font:12px var(--font)}
 .basemap{filter:grayscale(1) contrast(.9) brightness(1.04)}
 @media (prefers-color-scheme: dark){.basemap{filter:grayscale(1) invert(1) brightness(.8) contrast(.9)}}
+
+.chip{border:0;background:var(--fill);color:var(--ink);border-radius:999px;padding:7px 12px;font:500 14px var(--font);cursor:pointer;white-space:nowrap;flex:none}
+.chip[aria-pressed=true]{background:var(--ink);color:var(--bg)}
+.jump{gap:6px;position:sticky;top:env(safe-area-inset-top,0px);z-index:5;background:var(--bg);padding:8px 0}
+.grp h3{margin:14px 4px 8px;display:flex;align-items:center;gap:8px}
+.grp .cnt{font:600 12px var(--font);background:var(--fill);color:var(--ink2);border-radius:999px;padding:1px 8px;text-transform:none;letter-spacing:0}
+.cell.browse{background:var(--surface);border-radius:var(--r);margin-top:18px;box-shadow:var(--shadow)}
+
+/* slim Explore navigation */
+#t-explore{grid-template-columns:minmax(0,1fr)}
+#t-explore>*,#exploreList>*{min-width:0}
+#exploreList{grid-template-columns:minmax(0,1fr)}
+input[type=search].slim{padding-top:8px;padding-bottom:8px;font-size:16px}
+.exbar{display:flex;align-items:center;gap:8px;min-width:0}
+.exbar .hscroll{gap:6px;padding:0;flex:1;min-width:0}
+.seg.mini{flex:none;border-radius:8px}
+.seg.mini button{flex:none;min-height:28px;padding:4px 11px;font-size:13px;border-radius:6px}
+.exbar .chip,.jump .chip{padding:5px 11px;font-size:13px}
+.chip[aria-pressed=true]{background:var(--ink);color:var(--bg)}
+.hint1{margin:0 4px;font-size:12px;color:var(--ink2);white-space:nowrap;overflow:hidden;text-overflow:ellipsis;cursor:pointer}
+.hint1.open{white-space:normal}
+.jump{padding:6px 0 6px!important;margin:0 -2px}
+.grp h3{margin:12px 4px 6px!important}
+.list{background:var(--surface);border-radius:var(--r);overflow:hidden;box-shadow:var(--shadow)}
+.brow{display:flex;align-items:center;gap:12px;width:100%;border:0;background:none;padding:7px 12px;text-align:left;color:var(--ink);cursor:pointer;font:inherit;content-visibility:auto;contain-intrinsic-size:auto 70px}
+.brow+.brow{box-shadow:inset 0 .5px 0 var(--sep)}
+.brow:active{background:var(--fill)}
+.brow img{width:56px;height:56px;border-radius:10px;object-fit:cover;background:var(--surface2);flex:none}
+.brow .t{flex:1;min-width:0}
+.brow b{font:600 16px/1.25 var(--font);display:block;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.brow small{display:block;font-size:13px;color:var(--ink2);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.brow .chev{color:var(--ink3);font-size:20px;flex:none}
 </style>
 </head>
 <body>
@@ -235,6 +267,7 @@ details[open]>summary .chev{transform:rotate(90deg)}
     <button class="btn primary block" id="photoGo" disabled>Identify</button>
     <div class="status" id="photoMsg" aria-live="polite"></div>
     <div id="photoRes" class="stack"></div>
+    <p class="foot" id="relayNote" hidden>Photo ID is free in this app (up to 25 photos per person per day). Add your own key below only if you need more.</p>
     <h3>Claude API key <span id="keyState" style="text-transform:none"></span></h3>
     <div class="group" id="keyBox">
       <div class="cell" style="display:block;cursor:default"><p class="small muted" style="margin:0 0 10px">Photo ID uses Claude vision with your own Anthropic API key (console.anthropic.com). The key stays on this device and is sent only to api.anthropic.com. About 1–2 US cents per photo.</p>
@@ -250,16 +283,11 @@ details[open]>summary .chev{transform:rotate(90deg)}
   </section>
 
   <!-- EXPLORE -->
-  <section id="t-explore" class="stack" hidden>
-    <div class="seg" role="group" aria-label="Source">
-      <button aria-pressed="true" data-src="inat">Nearby</button>
-      <button aria-pressed="false" data-src="geo">This week</button>
-      <button aria-pressed="false" data-src="world">World</button>
-      <button aria-pressed="false" data-src="guide">Guide</button>
-    </div>
-    <input type="search" id="exploreQ" placeholder="Search any bird, any name" aria-label="Search birds">
-    <p class="small muted" id="exploreHint" style="margin:0 4px"></p>
-    <div id="exploreList" class="grid2"></div>
+  <section id="t-explore" class="stack" hidden style="gap:8px">
+    <input type="search" id="exploreQ" class="slim" placeholder="Look up any bird in the world" aria-label="Search birds">
+    <div class="exbar"><div class="seg mini" id="exSeg" role="group" aria-label="View"><button aria-pressed="true" data-src="guide">Guide</button><button aria-pressed="false" data-src="near">Nearby</button></div><div class="hscroll" id="exChips"></div></div>
+    <p class="hint1" id="exploreHint" title=""></p>
+    <div id="exploreList" class="stack" style="gap:6px"></div>
     <button class="btn block" id="exploreMore" hidden>Show more</button>
   </section>
 

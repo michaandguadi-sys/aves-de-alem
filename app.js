@@ -46,7 +46,7 @@ $('#locBtn').onclick=()=>{
   $('#placeRes').onclick=e=>{const b=e.target.closest('[data-lat]');if(b)setLoc({lat:+b.dataset.lat,lon:+b.dataset.lon,name:b.dataset.name})};
   setTimeout(()=>$('#placeQ')?.focus(),350);
 };
-function setLoc(l){loc=l;LS.set('loc',l);LS.set('locSet',true);if($('#locHint'))$('#locHint').hidden=true;renderLoc();closeSheet();exploreCache={};quizPool=null;if(!$('#t-explore').hidden)loadExplore();if(bird.ready)bird.call({type:'location',lat:l.lat,lon:l.lon,week:bnWeek()},'located').then(()=>{geoListCache=null;if(!$('#t-explore').hidden&&exploreSrc==='geo')loadExplore();toast('Location updated')});else toast('Location updated')}
+function setLoc(l){loc=l;LS.set('loc',l);LS.set('locSet',true);if($('#locHint'))$('#locHint').hidden=true;renderLoc();closeSheet();exploreCache={};quizPool=null;if(!$('#t-explore').hidden)loadExplore();if(bird.ready)bird.call({type:'location',lat:l.lat,lon:l.lon,week:bnWeek()},'located').then(()=>{geoListCache=null;if(!$('#t-explore').hidden&&exploreSrc==='near')loadExplore();toast('Location updated')});else toast('Location updated')}
 renderLoc();
 
 /* ---------- BirdNET worker ---------- */
@@ -219,41 +219,87 @@ function renderFacts(tx,sci){const box=$('#facts');if(!box||!tx)return;const anc
   const rows=[['Order',ord?ord.name+(ord.preferred_common_name?' · '+ord.preferred_common_name:''):wf&&wf[2]],['Family',wf?`${wf[0]} · ${wf[1]}`:fam&&(fam.name+(fam.preferred_common_name?' · '+fam.preferred_common_name:''))],['Genus',gen&&gen.name],
     ...statusRows(tx),['Observations',tx.observations_count&&tx.observations_count.toLocaleString()+' on iNaturalist worldwide'],['English name',wr?wr[1]:tx.english_common_name],['eBird code',wr&&wr[5]]].filter(r=>r[1]);
   if(rows.length)box.innerHTML=`<h3>Facts</h3><div class="group">${rows.map(([k,v])=>`<div class="cell" style="cursor:default;align-items:flex-start"><span class="muted" style="min-width:112px">${esc(k)}</span><span class="grow">${esc(v)}</span></div>`).join('')}</div><p class="foot">Taxonomy: eBird/Clements Checklist. Status: IUCN Red List and national lists via iNaturalist.</p>`}
-/* ---------- explore ---------- */
-let exploreSrc='inat',exploreCache={},geoListCache=null,exploreShown=60;
-$$('#t-explore .seg button').forEach(b=>b.onclick=()=>{exploreSrc=b.dataset.src;$$('#t-explore .seg button').forEach(x=>x.setAttribute('aria-pressed',x===b));exploreShown=60;loadExplore()});
-let qT=null;$('#exploreQ').oninput=()=>{exploreShown=60;if(exploreSrc==='world'){clearTimeout(qT);qT=setTimeout(renderWorld,160)}else renderExplore()};
-$('#exploreMore').onclick=()=>{exploreShown+=60;renderExplore()};
+/* ---------- explore: field guide (main), seen nearby, world lookup ---------- */
+const GROUPS=[
+ ['Tinamous, guans & quails',['Tinamidae','Cracidae','Odontophoridae','Phasianidae','Numididae','Megapodiidae']],
+ ['Ducks & waterfowl',['Anatidae','Anhimidae']],
+ ['Herons, ibises & grebes',['Ardeidae','Threskiornithidae','Ciconiidae','Podicipedidae','Phalacrocoracidae','Anhingidae','Pelecanidae','Phoenicopteridae','Scopidae','Balaenicipitidae']],
+ ['Rails & cranes',['Rallidae','Aramidae','Heliornithidae','Gruidae','Psophiidae','Cariamidae','Eurypygidae','Otididae']],
+ ['Shorebirds, gulls & terns',['Charadriidae','Scolopacidae','Jacanidae','Recurvirostridae','Laridae','Haematopodidae','Burhinidae','Rostratulidae','Thinocoridae','Stercorariidae','Alcidae','Glareolidae']],
+ ['Raptors & vultures',['Cathartidae','Accipitridae','Falconidae','Pandionidae','Sagittariidae']],
+ ['Pigeons & doves',['Columbidae']],
+ ['Cuckoos',['Cuculidae']],
+ ['Owls & nightbirds',['Strigidae','Tytonidae','Caprimulgidae','Nyctibiidae','Podargidae','Aegothelidae','Steatornithidae']],
+ ['Swifts & hummingbirds',['Apodidae','Trochilidae','Hemiprocnidae']],
+ ['Trogons, kingfishers & motmots',['Trogonidae','Alcedinidae','Momotidae','Todidae','Meropidae','Coraciidae','Upupidae','Bucerotidae']],
+ ['Toucans, woodpeckers & puffbirds',['Ramphastidae','Picidae','Bucconidae','Galbulidae','Capitonidae','Semnornithidae','Lybiidae','Megalaimidae','Indicatoridae']],
+ ['Parrots',['Psittacidae','Psittaculidae','Cacatuidae','Strigopidae']],
+ ['Ovenbirds & woodcreepers',['Furnariidae']],
+ ['Antbirds & tapaculos',['Thamnophilidae','Formicariidae','Grallariidae','Conopophagidae','Rhinocryptidae','Melanopareiidae']],
+ ['Flycatchers, manakins & cotingas',['Tyrannidae','Pipridae','Cotingidae','Tityridae','Oxyruncidae','Platyrinchidae','Pipritidae','Onychorhynchidae','Rhynchocyclidae','Tachurisidae']],
+ ['Jays, crows & vireos',['Corvidae','Vireonidae','Laniidae']],
+ ['Swallows',['Hirundinidae']],
+ ['Thrushes, wrens & mockingbirds',['Turdidae','Troglodytidae','Mimidae','Polioptilidae','Donacobiidae','Muscicapidae','Cinclidae']],
+ ['Warblers & other small songbirds',['Parulidae','Paridae','Sylviidae','Phylloscopidae','Acrocephalidae','Cisticolidae','Regulidae','Aegithalidae','Sittidae','Certhiidae']],
+ ['Tanagers, seedeaters & cardinals',['Thraupidae','Cardinalidae','Mitrospingidae','Passerellidae','Emberizidae','Calcariidae']],
+ ['Finches, euphonias & sparrows',['Fringillidae','Passeridae','Estrildidae','Ploceidae','Viduidae','Motacillidae']],
+ ['Blackbirds, orioles & starlings',['Icteridae','Sturnidae']]];
+const FAM2G={};GROUPS.forEach(([n,fs],i)=>fs.forEach(f=>FAM2G[f]=i));
+function groupOf(sci){const r=WORLD.ready&&WORLD.bySci.get(sci);let fam=r?WORLD.f[r[3]][0]:'',ord=r?WORLD.f[r[3]][2]:'';
+  if(!fam&&GUIDE[sci]){fam=GUIDE[sci].fam.split(' ')[0];ord=GUIDE[sci].ord}
+  if(fam in FAM2G)return [FAM2G[fam],GROUPS[FAM2G[fam]][0]];
+  if(ord==='Passeriformes')return [90,'Other songbirds'];return [80,(typeof ordName==='function'&&ordName(ord))||'Other birds']}
+let exploreSrc='guide',exploreCache={},geoListCache=null,exChip=LS.get('exChip',{guide:'all',near:'rec'}),exploreItems=[];
+const GUIDE_CHIPS=[['all','All'],['town','Town & gardens'],['farm','Fields & pasture'],['forest','Forest & edges'],['water','Water'],['night','Night'],['M','Spring migrants']];
+const NEAR_CHIPS=[['rec','Recorded'],['week','Expected this week']];
+$('#exSeg').onclick=e=>{const b=e.target.closest('[data-src]');if(!b)return;exploreSrc=b.dataset.src;$('#exploreQ').value='';loadExplore()};
+$('#exploreHint').onclick=e=>e.currentTarget.classList.toggle('open');
+$('#exChips').onclick=e=>{const b=e.target.closest('[data-chip]');if(!b)return;exChip[exploreSrc]=b.dataset.chip;LS.set('exChip',exChip);loadExplore()};
+let qT=null;$('#exploreQ').oninput=()=>{clearTimeout(qT);qT=setTimeout(()=>$('#exploreQ').value.trim()?renderWorld():loadExplore(),160)};
+$('#exploreMore').onclick=()=>{};
 async function getInatLocal(){const k=`${loc.lat},${loc.lon},${I18N.lang},${RADIUS}`;if(exploreCache[k])return exploreCache[k];
   const ck='local:'+k,c=LS.get(ck,null);if(c&&Date.now()-c.t<3*86400e3)return exploreCache[k]=c.d;
   const url=p=>`${INAT2}/observations/species_counts?taxon_id=3&lat=${loc.lat}&lng=${loc.lon}&radius=${RADIUS}&quality_grade=research&locale=${I18N.lang}&per_page=200&page=${p}&fields=(count:!t,taxon:(id:!t,name:!t,rank:!t,preferred_common_name:!t,default_photo:(square_url:!t)))`;
   const get=async p=>{const r=await fetch(url(p));if(!r.ok)throw new Error('iNaturalist '+r.status);return r.json()};
   const first=await get(1);let all=first.results;const pages=Math.min(3,Math.ceil(first.total_results/200));
   if(pages>1){const more=await Promise.all(Array.from({length:pages-1},(_,i)=>get(i+2).catch(()=>({results:[]}))));more.forEach(m=>all=all.concat(m.results))}
-  const d=all.filter(r=>r.taxon.rank==='species').map(r=>({sci:r.taxon.name,es:r.taxon.preferred_common_name||r.taxon.name,img:r.taxon.default_photo?.square_url||'',sub:`${r.count} records within ${RADIUS} km`}));
+  const d=all.filter(r=>r.taxon.rank==='species').map(r=>({sci:r.taxon.name,es:r.taxon.preferred_common_name||r.taxon.name,img:r.taxon.default_photo?.square_url||'',n:r.count,sub:`${r.count} records within ${RADIUS} km`}));
   all.forEach(r=>{if(r.taxon.default_photo?.square_url)KNOWN_IMG['#'+r.taxon.id]=r.taxon.default_photo.square_url});d.forEach(x=>{if(x.img)KNOWN_IMG[x.sci]=x.img});saveKnown();LS.set(ck,{t:Date.now(),d});return exploreCache[k]=d}
 async function getGeoList(){if(geoListCache)return geoListCache;if(!bird.ready)return null;const r=await bird.call({type:'localList',thresh:0.05});
-  return geoListCache=r.list.map(b=>({sci:b.sci,es:GUIDE[b.sci]?NM(GUIDE[b.sci]):(I18N.lang==='es'?b.es:b.en),img:'',sub:`${Math.round(b.geo*100)}% likely this week`}))}
-let exploreItems=[];
-async function loadExplore(){const hint=$('#exploreHint');if(exploreSrc==='world'){$('#exploreMore').hidden=true;return renderWorld()}$('#exploreList').innerHTML='<div class="empty">Loading…</div>';
-  try{if(exploreSrc==='inat'){hint.textContent=`Research-grade iNaturalist records within ${RADIUS} km of ${loc.name||(loc.lat.toFixed(3)+', '+loc.lon.toFixed(3))}, most-recorded first.`;exploreItems=await getInatLocal()}
-    else if(exploreSrc==='geo'){hint.textContent=`BirdNET location model: species expected at your location in week ${bnWeek()} (eBird-trained).`;const g=await getGeoList();if(!g){$('#exploreList').innerHTML='<div class="empty">Download the Sound ID model first (Sound tab). The location model comes with it.</div>';return}exploreItems=g}
-    else{hint.textContent='The 55 species of the Aves de Alem guide, with field marks and science notes.';exploreItems=Object.values(GUIDE).map(g=>({sci:g.sci,es:NM(g),img:'',sub:`${I18N.lang==='es'?g.en:g.es} · ${g.cm[0]}–${g.cm[1]} cm`}))}
-    renderExplore()}catch(e){$('#exploreList').innerHTML=`<div class="empty">Could not load (${esc(e.message)}). Offline? The Guide list works offline.</div>`}}
-function renderExplore(){if(exploreSrc==='world')return renderWorld();const q=$('#exploreQ').value.trim().toLowerCase();const items=exploreItems.filter(i=>!q||(i.es+' '+i.sci+' '+(GUIDE[i.sci]?.en||'')).toLowerCase().includes(q));
-  $('#exploreList').innerHTML=items.length?items.slice(0,exploreShown).map(i=>`<button class="tile" data-sci="${esc(i.sci)}"><img ${i.img?`src="${esc(i.img)}"`:`data-photo="${esc(i.sci)}"`} loading="lazy" alt=""><div class="t"><b>${esc(i.es)}</b><small class="sci">${esc(i.sci)}</small><br><small>${esc(i.sub)}</small>${GUIDE[i.sci]?'<br><small><span class="dot"></span>guide notes</small>':''}</div></button>`).join(''):'<div class="empty">No match.</div>';
-  $('#exploreMore').hidden=items.length<=exploreShown;hydratePhotos($('#exploreList'))}
-$('#exploreList').addEventListener('click',e=>{const n=e.target.closest('[data-nav]');if(n)return worldNav(n.dataset.nav);const b=e.target.closest('[data-sci]');if(b)openSpecies(b.dataset.sci)});
+  return geoListCache=r.list.map(b=>({sci:b.sci,es:GUIDE[b.sci]?NM(GUIDE[b.sci]):(I18N.lang==='es'?b.es:b.en),img:'',n:b.geo,sub:`${Math.round(b.geo*100)}% likely this week`}))}
+function renderChips(list,cur){$('#exChips').innerHTML=list.map(([k,l])=>`<button class="chip" data-chip="${k}" aria-pressed="${k===cur}">${esc(l)}</button>`).join('');$('#exChips').hidden=false}
+async function loadExplore(){const hint=$('#exploreHint'),box=$('#exploreList');$('#exploreMore').hidden=true;
+  $$('#exSeg button').forEach(x=>x.setAttribute('aria-pressed',x.dataset.src===exploreSrc));
+  if(exploreSrc==='world'){$('#exChips').hidden=true;return renderWorld()}
+  if(!WORLD.ready)await loadWorld().catch(()=>{});
+  try{if(exploreSrc==='guide'){const ch=exChip.guide||'all';renderChips(GUIDE_CHIPS,ch);
+      hint.textContent='55 common birds of Misiones with field marks, voice and science notes.';
+      exploreItems=Object.values(GUIDE).filter(g=>ch==='all'||(ch==='M'?g.sea!=='R':g.hab.includes(ch))).map(g=>({sci:g.sci,es:NM(g),img:'',sub:`${g.cm[0]}–${g.cm[1]} cm · ${I18N.lang==='es'?g.en:g.es}`}))}
+    else{const ch=exChip.near||'rec';renderChips(NEAR_CHIPS,ch);box.innerHTML='<div class="empty">Loading…</div>';
+      if(ch==='week'){hint.textContent=`BirdNET location model: species expected at your location in week ${bnWeek()} (eBird-trained).`;const g=await getGeoList();if(!g){box.innerHTML='<div class="empty">Download the Sound ID model first (Sound tab). The location model comes with it.</div>';return}exploreItems=g}
+      else{hint.textContent=`Research-grade iNaturalist records within ${RADIUS} km of ${loc.name||(loc.lat.toFixed(3)+', '+loc.lon.toFixed(3))}, most-recorded first.`;exploreItems=await getInatLocal()}}
+    renderExplore()}catch(e){box.innerHTML=`<div class="empty">Could not load (${esc(e.message)}). Offline? The Guide list works offline.</div>`}}
+function renderExplore(){if(exploreSrc==='world')return renderWorld();const box=$('#exploreList');
+  const groups=new Map();exploreItems.forEach(i=>{const [gi,gn]=groupOf(i.sci);if(!groups.has(gn))groups.set(gn,{gi,items:[]});groups.get(gn).items.push(i)});
+  const sorted=[...groups.entries()].sort((a,b)=>a[1].gi-b[1].gi||a[0].localeCompare(b[0]));
+  box.innerHTML=(sorted.length?`<div class="jump hscroll">${sorted.map(([n],i)=>`<button class="chip" data-jump="g${i}">${esc(n)}</button>`).join('')}</div>`+sorted.map(([n,g],i)=>`<section class="grp" id="g${i}"><h3>${esc(n)} <span class="cnt">${g.items.length}</span></h3><div class="list">${g.items.map(i=>`<button class="brow" data-sci="${esc(i.sci)}"><img ${i.img?`src="${esc(i.img)}"`:`data-photo="${esc(i.sci)}"`} loading="lazy" alt=""><div class="t"><b>${esc(i.es)}</b><small><i>${esc(i.sci)}</i>${i.sub?' · '+esc(i.sub):''}</small>${GUIDE[i.sci]&&exploreSrc!=='guide'?'<small><span class="dot"></span>guide notes</small>':''}</div><span class="chev">›</span></button>`).join('')}</div></section>`).join(''):'<div class="empty">No birds match this filter.</div>')
+   +`<button class="cell browse" data-nav="root"><span class="grow"><b>Browse all birds of the world</b><br><span class="small muted">${WORLD.ready?WORLD.s.length.toLocaleString():'11,004'} species by order and family</span></span><svg class="chev" width="8" height="14" viewBox="0 0 8 14"><path d="M1 1l6 6-6 6" stroke="currentColor" stroke-width="2" fill="none" stroke-linecap="round"/></svg></button>`;
+  hydratePhotos(box)}
+$('#exploreList').addEventListener('click',e=>{const j=e.target.closest('[data-jump]');if(j){const t=document.getElementById(j.dataset.jump);if(t)window.scrollTo({top:t.getBoundingClientRect().top+scrollY-70,behavior:'smooth'});return}
+  const n=e.target.closest('[data-nav]');if(n){if(n.dataset.nav==='back'){exploreSrc=LS.get('exBack','guide');return loadExplore()}if(exploreSrc!=='world'){LS.set('exBack',exploreSrc);exploreSrc='world'}return worldNav(n.dataset.nav)}
+  const b=e.target.closest('[data-sci]');if(b)openSpecies(b.dataset.sci)});
 
 /* ---------- photo ID (Claude) ---------- */
 let photoFile=null;
-function keyState(){const k=LS.get('apiKey','');$('#keyState').textContent=k?'· saved':'· not set';$('#apiModel').value=LS.get('apiModel','claude-sonnet-5-5');$('#photoGo').disabled=!photoFile;}
+function keyState(){const k=LS.get('apiKey','');$('#keyState').textContent=k?'· saved':RELAY?'· optional':'· not set';if($('#relayNote'))$('#relayNote').hidden=!RELAY||!!k;$('#apiModel').value=LS.get('apiModel','claude-sonnet-5-5');$('#photoGo').disabled=!photoFile;}
 $('#saveKey').onclick=()=>{const v=$('#apiKey').value.trim();if(!v.startsWith('sk-'))return toast('That does not look like an Anthropic key');LS.set('apiKey',v);LS.set('apiModel',$('#apiModel').value);$('#apiKey').value='';keyState();toast('Key saved on this device')};
 $('#clearKey').onclick=()=>{LS.set('apiKey','');keyState();toast('Key removed')};
 $('#apiModel').onchange=e=>LS.set('apiModel',e.target.value);
 $('#photoFile').onchange=e=>{photoFile=e.target.files[0]||null;if(photoFile){$('#photoPrev').src=URL.createObjectURL(photoFile);$('#photoPrev').hidden=false;$('#photoRes').innerHTML='';$('#photoDrop').lastChild.textContent='Choose another photo';$('#photoDrop').style.minHeight='64px'}keyState()};
 async function toJpegB64(file){const bmp=await createImageBitmap(file);const s=Math.min(1,1400/Math.max(bmp.width,bmp.height));const c=document.createElement('canvas');c.width=Math.round(bmp.width*s);c.height=Math.round(bmp.height*s);c.getContext('2d').drawImage(bmp,0,0,c.width,c.height);return c.toDataURL('image/jpeg',0.86).split(',')[1]}
-$('#photoGo').onclick=async()=>{const key=LS.get('apiKey','');if(!key){$('#photoMsg').textContent='Add your API key below, or use a free alternative.';$('#apiKey').focus();return}
+let RELAY=null;fetch('./api/health',{cache:'no-store'}).then(r=>r.ok?r.json():null).then(d=>{RELAY=d&&d.ok?d:null;keyState()}).catch(()=>{});
+async function relayPost(path,body){const r=await fetch('./api/'+path,{method:'POST',headers:{'content-type':'application/json'},body:JSON.stringify(body)});let d={};try{d=await r.json()}catch(e){}if(!r.ok)throw new Error(d.error||('HTTP '+r.status));return d}
+$('#photoGo').onclick=async()=>{const key=LS.get('apiKey','');if(!key&&!RELAY){$('#photoMsg').textContent='Add your API key below, or use a free alternative.';$('#apiKey').focus();return}
   $('#photoGo').disabled=true;$('#photoMsg').textContent='Identifying…';$('#photoRes').innerHTML='';
   try{let local='';try{const g=await getGeoList();if(g)local=g.slice(0,220).map(b=>`${b.sci} (${b.es})`).join('; ')}catch(e){}
     if(!local)local=Object.values(GUIDE).map(g=>`${g.sci} (${g.es})`).join('; ');
@@ -261,10 +307,11 @@ $('#photoGo').onclick=async()=>{const key=LS.get('apiKey','');if(!key){$('#photo
 Species expected near this location (prior, not exhaustive): ${local}
 Identify the bird in the photo. Weigh visible field marks first, the location prior second. If it is not a bird or too unclear, say so with low confidence.
 ${I18N.lang==='es'?'Write the marks, separate and tip fields in Spanish (Argentina). ':''}Reply with ONLY JSON: {"candidates":[{"sci":"Genus species","common_es":"","common_en":"","confidence":0-100,"marks":"visible field marks supporting this, max 35 words"}],"separate":"how to tell the top two apart, max 30 words","tip":"what to photograph or listen for to confirm, max 25 words"} with 1-3 candidates, best first. Never invent marks you cannot see.`;
-    const body={model:LS.get('apiModel','claude-sonnet-5-5'),max_tokens:900,messages:[{role:'user',content:[{type:'image',source:{type:'base64',media_type:'image/jpeg',data:await toJpegB64(photoFile)}},{type:'text',text:prompt}]}]};
-    const r=await fetch('https://api.anthropic.com/v1/messages',{method:'POST',headers:{'content-type':'application/json','x-api-key':key,'anthropic-version':'2023-06-01','anthropic-dangerous-direct-browser-access':'true'},body:JSON.stringify(body)});
-    const d=await r.json();if(!r.ok)throw new Error(d.error?.message||('HTTP '+r.status));
-    const txt=d.content.map(c=>c.text||'').join('');const j=JSON.parse(txt.slice(txt.indexOf('{'),txt.lastIndexOf('}')+1));
+    const image=await toJpegB64(photoFile);let txt;
+    if(key){const body={model:LS.get('apiModel','claude-sonnet-5-5'),max_tokens:900,messages:[{role:'user',content:[{type:'image',source:{type:'base64',media_type:'image/jpeg',data:image}},{type:'text',text:prompt}]}]};
+      const r=await fetch('https://api.anthropic.com/v1/messages',{method:'POST',headers:{'content-type':'application/json','x-api-key':key,'anthropic-version':'2023-06-01','anthropic-dangerous-direct-browser-access':'true'},body:JSON.stringify(body)});
+      const d=await r.json();if(!r.ok)throw new Error(d.error?.message||('HTTP '+r.status));txt=d.content.map(c=>c.text||'').join('')}
+    else{const sp=(await getGeoList().catch(()=>null))||Object.values(GUIDE);txt=(await relayPost('identify',{image,lat:loc.lat,lon:loc.lon,notes:$('#photoNote').value,lang:I18N.lang,local:sp.slice(0,220).map(b=>b.sci)})).text}const j=JSON.parse(txt.slice(txt.indexOf('{'),txt.lastIndexOf('}')+1));
     $('#photoMsg').textContent='';
     $('#photoRes').innerHTML=(j.candidates||[]).map(c=>{const conf=Math.max(0,Math.min(100,+c.confidence||0)),g=GUIDE[c.sci];return `<button class="det" data-sci="${esc(c.sci)}" data-conf="${conf}"><img data-photo="${esc(c.sci)}" alt=""><div style="min-width:0"><div class="nm">${esc(g?NM(g):((I18N.lang==='es'?(c.common_es||c.common_en):(c.common_en||c.common_es))||c.sci))}</div><div class="sc">${esc(c.sci)}${c.common_en?' · '+esc(c.common_en):''}</div><div class="bar"><i style="width:${conf}%"></i></div><div class="small" style="margin-top:6px">${esc(c.marks||'')}</div></div><div class="right">${conf}%</div></button>`}).join('')
       +(j.separate?`<p class="small muted" style="margin:0"><b>Telling them apart:</b> ${esc(j.separate)}</p>`:'')+(j.tip?`<p class="small muted" style="margin:0"><b>To confirm:</b> ${esc(j.tip)}</p>`:'');
@@ -466,7 +513,7 @@ $('#exportCsv').onclick=()=>{if(!G.sightings.length)return toast('Journal is emp
   const a=document.createElement('a');a.href=URL.createObjectURL(new Blob([csv],{type:'text/csv'}));a.download=`aves-journal-${dayKey(Date.now())}.csv`;a.click()};
 loadGame();
 
-function onLangChange(){geoListCache=null;exploreCache={};quizPool=null;
+function onLangChange(){geoListCache=null;exploreCache={};quizPool=null;if(!$('#t-explore').hidden&&$('#exploreQ').value.trim()){renderWorld();return}
   if(!$('#t-explore').hidden)loadExplore();if(!$('#t-life').hidden)renderLife();
   if(Object.keys(live.dets||{}).length)renderDetections(Object.values(live.dets),live.on);}
 (window.requestIdleCallback||((f)=>setTimeout(f,1500)))(()=>loadWorld().catch(()=>{}));

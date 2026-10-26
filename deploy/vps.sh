@@ -57,6 +57,37 @@ $SUDO docker run -d --name "$NAME" --restart unless-stopped --network "$NET" \
   nginx:1.27-alpine >/dev/null
 $SUDO rm -rf "$DIR/site.old"
 
+echo "3b Photo ID relay (your Anthropic key stays on this server)…"
+ENVF="$DIR/.env"
+if [ ! -f "$ENVF" ]; then
+  KEY="${ANTHROPIC_API_KEY:-}"
+  if [ -z "$KEY" ] && [ -r /dev/tty ]; then
+    read -rsp "    Anthropic API key for free Photo ID (Enter to skip): " KEY </dev/tty || true; echo
+  fi
+  if [ -n "$KEY" ]; then
+    umask 077; printf 'ANTHROPIC_API_KEY=%s\nPER_IP_DAILY=25\nGLOBAL_DAILY=400\nMODEL=claude-sonnet-5-5\n' "$KEY" | $SUDO tee "$ENVF" >/dev/null; $SUDO chmod 600 "$ENVF"
+  fi
+fi
+if [ -f "$ENVF" ]; then
+  $SUDO mkdir -p "$DIR/cache"
+  $SUDO docker rm -f "$NAME-relay" >/dev/null 2>&1 || true
+  if [ -n "$SUBPATH" ]; then
+    RELAY_LABELS=(-l "traefik.http.routers.$NAME-relay.rule=Host(\`$DOMAIN\`) && PathPrefix(\`$SUBPATH/api\`)" -l "traefik.http.routers.$NAME-relay.priority=1100" -l "traefik.http.routers.$NAME-relay.middlewares=$NAME-strip")
+  else
+    RELAY_LABELS=(-l "traefik.http.routers.$NAME-relay.rule=Host(\`$DOMAIN\`) && PathPrefix(\`/api\`)" -l "traefik.http.routers.$NAME-relay.priority=1100")
+  fi
+  $SUDO docker run -d --name "$NAME-relay" --restart unless-stopped --network "$NET" --env-file "$ENVF" \
+    -e ALLOWED_ORIGINS="https://$DOMAIN" -e SITE_DIR=/site -e CACHE_DIR=/cache \
+    -v "$DIR/site:/site:ro" -v "$DIR/cache:/cache" --read-only --tmpfs /tmp --memory 256m --pids-limit 100 \
+    -l traefik.enable=true -l "traefik.docker.network=$NET" "${RELAY_LABELS[@]}" \
+    -l "traefik.http.routers.$NAME-relay.entrypoints=$ENTRY" -l "traefik.http.routers.$NAME-relay.tls=true" \
+    -l "traefik.http.routers.$NAME-relay.tls.certresolver=$RESOLVER" -l "traefik.http.services.$NAME-relay.loadbalancer.server.port=8080" \
+    node:22-alpine node /site/server/server.mjs >/dev/null
+  echo "    relay running: free Photo ID and ornithologist notes for everyone (25/person/day, 400/day total)"
+else
+  echo "    no key given: skipped. Users can still add their own key in the Photo tab."
+fi
+
 echo "4/4 Checking…"
 MYIP=$(curl -fsS4 https://api.ipify.org 2>/dev/null || true)
 DNSIP=$(getent ahostsv4 "$DOMAIN" 2>/dev/null | awk 'NR==1{print $1}' || true)

@@ -38,21 +38,21 @@ function navTile(nav,title,sub,inat){return `<button class="tile" data-nav="${es
 async function renderWorld(){const box=$('#exploreList'),hint=$('#exploreHint');
   try{if(!WORLD.ready){box.innerHTML='<div class="empty">Loading…</div>';await loadWorld()}}catch(e){box.innerHTML=`<div class="empty">Could not load (${esc(e.message)}). Offline? The Guide list works offline.</div>`;return}
   const q=$('#exploreQ').value.trim();let crumbs='';
-  if(q){wItems=worldSearch(q).map(r=>({r}));hint.textContent=wItems.length?`${wItems.length} matches worldwide`:'No match.'}
+  if(q){wItems=worldSearch(q).map(r=>({r}));hint.textContent=wItems.length?`${wItems.length} matches worldwide`:'No match.';$('#exChips').hidden=true;$$('#exSeg button').forEach(x=>x.setAttribute('aria-pressed','false'))}
   else if(wv.mode==='orders'){const ord=new Map();WORLD.s.forEach(r=>{const o=WORLD.f[r[3]][2];const e=ord.get(o)||{o,n:0,fams:new Set(),best:null};e.n++;e.fams.add(r[3]);if(r[4]&&(!e.best||r[6]>e.best[6]))e.best=r;ord.set(o,e)});
     wItems=[...ord.values()].map(e=>({nav:'o:'+e.o,title:ordName(e.o)||e.o,sub:`${e.o} · ${pl(e.fams.size,'family','families')} · ${pl(e.n,'species','species')}`,inat:e.best&&e.best[4]}));hint.textContent=`${WORLD.s.length.toLocaleString()} bird species in ${WORLD.f.length} families. Search any name, or browse by order.`}
   else if(wv.mode==='families'){const fm=new Map();WORLD.s.forEach(r=>{const f=WORLD.f[r[3]];if(f[2]!==wv.order)return;const e=fm.get(r[3])||{fi:r[3],n:0,best:null};e.n++;if(r[4]&&(!e.best||r[6]>e.best[6]))e.best=r;fm.set(r[3],e)});
     wItems=[...fm.values()].map(e=>({nav:'f:'+e.fi,title:WORLD.f[e.fi][0],sub:`${WORLD.f[e.fi][1]} · ${e.n} species`,inat:e.best&&e.best[4]}));
-    crumbs=`<button class="btn sm" data-nav="root">All birds</button> › <b>${esc(ordName(wv.order)||wv.order)}</b>`;hint.textContent=`${wv.order} · ${pl(wItems.length,'family','families')}`}
+    crumbs=`› <button class="btn sm" data-nav="root">All birds</button> › <b>${esc(ordName(wv.order)||wv.order)}</b>`;hint.textContent=`${wv.order} · ${pl(wItems.length,'family','families')}`}
   else{const f=WORLD.f[wv.fam];wItems=WORLD.s.filter(r=>r[3]===wv.fam).map(r=>({r}));
-    crumbs=`<button class="btn sm" data-nav="root">All birds</button> › <button class="btn sm" data-nav="o:${esc(f[2])}">${esc(ordName(f[2])||f[2])}</button> › <b>${esc(f[0])}</b>`;hint.textContent=`${f[1]} · ${wItems.length} species`}
-  wShown=0;box.innerHTML=(crumbs?`<div class="row small" style="grid-column:1/-1;gap:6px">${crumbs}</div>`:'');moreWorld()}
-function moreWorld(){const box=$('#exploreList');box.querySelector('.sentinel')?.remove();const next=wItems.slice(wShown,wShown+48);wShown+=next.length;
+    crumbs=`› <button class="btn sm" data-nav="root">All birds</button> › <button class="btn sm" data-nav="o:${esc(f[2])}">${esc(ordName(f[2])||f[2])}</button> › <b>${esc(f[0])}</b>`;hint.textContent=`${f[1]} · ${wItems.length} species`}
+  wShown=0;const back=q?'':`<button class="btn sm" data-nav="back">‹ ${esc(LS.get('exBack','guide')==='near'?'Nearby':'Guide')}</button>`;box.innerHTML=`<div class="row small" style="gap:6px">${back}${crumbs?' '+crumbs:''}</div><div class="grid2" id="wGrid"></div>`;moreWorld()}
+function moreWorld(){const box=$('#wGrid');if(!box)return;box.querySelector('.sentinel')?.remove();const next=wItems.slice(wShown,wShown+48);wShown+=next.length;
   box.insertAdjacentHTML('beforeend',next.map(i=>i.r?worldTile(i.r):navTile(i.nav,i.title,i.sub,i.inat)).join(''));
   if(wShown<wItems.length){box.insertAdjacentHTML('beforeend','<div class="sentinel" style="grid-column:1/-1;height:1px"></div>');sentObs&&sentObs.observe(box.querySelector('.sentinel'))}
   watchInat(box);hydratePhotos(box);$('#exploreMore').hidden=true}
 const sentObs='IntersectionObserver' in window?new IntersectionObserver(es=>es.forEach(e=>{if(e.isIntersecting){sentObs.unobserve(e.target);moreWorld()}}),{rootMargin:'600px'}):null;
-function worldNav(nav){if(nav==='root')wv={mode:'orders'};else if(nav.startsWith('o:'))wv={mode:'families',order:nav.slice(2)};else if(nav.startsWith('f:'))wv={mode:'species',fam:+nav.slice(2)};$('#exploreQ').value='';renderWorld();window.scrollTo({top:0})}
+function worldNav(nav){if(nav==='root')wv={mode:'orders'};else if(nav.startsWith('o:'))wv={mode:'families',order:nav.slice(2)};else if(nav.startsWith('f:'))wv={mode:'species',fam:+nav.slice(2)};$('#exploreQ').value='';$$('#exSeg button').forEach(x=>x.setAttribute('aria-pressed','false'));$('#exChips').hidden=true;renderWorld();window.scrollTo({top:0})}
 
 /* ---------- species sheet: ornithological sections ---------- */
 const DIET_L=['Invertebrates','Birds & mammals','Reptiles & amphibians','Fish','Other vertebrates','Carrion','Fruit','Nectar','Seeds','Other plant matter'];
@@ -108,6 +108,8 @@ function statusRows(tx){const IUCN={LC:'Least Concern',NT:'Near Threatened',VU:'
 async function sheetExpert(sci,nameShown){const box=$('#expert');if(!box)return;const key=LS.get('apiKey','');const ck=`exp:${I18N.lang}:${sci}`;const cached=LS.get(ck,null);
   const show=t=>{box.innerHTML=`<h3>Ornithologist notes</h3><div class="card expert">${mdLite(t)}<p class="small muted" style="margin:10px 0 0">Written by Claude from Wikipedia, EltonTraits and iNaturalist data. Check important details against Birds of the World.</p></div>`};
   if(cached)return show(cached);
+  if(!key&&typeof RELAY!=='undefined'&&RELAY){box.innerHTML=`<h3>Ornithologist notes</h3><div class="card stack"><p class="small muted" style="margin:0">A structured field account: identification by age and sex, voice, confusion species, habitat, behaviour, breeding, movements, conservation.</p><button class="btn primary" id="expBtn">Write notes</button></div>`;
+    $('#expBtn').onclick=async()=>{const b=$('#expBtn');b.disabled=true;b.textContent='Writing…';try{const d=await relayPost('notes',{sci,lang:I18N.lang});LS.set(ck,d.text);show(d.text)}catch(e){b.disabled=false;b.textContent='Write notes';toast('Notes failed: '+e.message)}};return}
   box.innerHTML=`<h3>Ornithologist notes</h3><div class="card stack"><p class="small muted" style="margin:0">${key?'A structured field account: identification by age and sex, voice, confusion species, habitat, behaviour, breeding, movements, conservation.':'Add a Claude API key in the Photo tab to generate a structured field account for any species.'}</p>${key?'<button class="btn primary" id="expBtn">Write notes</button>':''}</div>`;
   const b=$('#expBtn');if(!b)return;b.onclick=async()=>{b.disabled=true;b.textContent='Writing…';
     try{const det=await detailsFor(sci)||{};const wikiTxt=Object.entries(mem).filter(([k])=>k.startsWith('wiki:')&&k.endsWith(':'+sci)).map(([,v])=>Object.values(v.query?.pages||{})[0]?.extract||'').join('\n').slice(0,9000);
