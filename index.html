@@ -187,6 +187,8 @@ details[open]>summary .chev{transform:rotate(90deg)}
 .expert p,.expert ul{margin:0 0 8px}
 .expert ul{padding-left:20px}
 .leaflet-container{font:12px var(--font)}
+.basemap{filter:grayscale(1) contrast(.9) brightness(1.04)}
+@media (prefers-color-scheme: dark){.basemap{filter:grayscale(1) invert(1) brightness(.8) contrast(.9)}}
 </style>
 </head>
 <body>
@@ -287,7 +289,7 @@ details[open]>summary .chev{transform:rotate(90deg)}
         <p style="margin:0"><b>Sound ID:</b> BirdNET V2.4 and its location model by the K. Lisa Yang Center for Conservation Bioacoustics (Cornell Lab of Ornithology) and Chemnitz University of Technology. Kahl, S., Wood, C. M., Eibl, M., &amp; Klinck, H. (2021). BirdNET: A deep learning solution for avian diversity monitoring. <i>Ecological Informatics</i>, 61, 101236. Model files served from the BirdNET-Team website repository (models CC BY-SA 4.0; worker code adapted from it, MIT). Personal, non-commercial use.</p>
         <p style="margin:0"><b>Photos, sounds, local records:</b> iNaturalist community; each item shows its author and licence. Species summaries from Wikipedia (CC BY-SA) via iNaturalist.</p>
         <p style="margin:0"><b>Photo ID:</b> Claude by Anthropic, with your own key. <b>Guide notes</b> for 55 species compiled from standard references (Narosky &amp; Yzurieta; Birds of the World); studies cited in place.</p>
-        <p style="margin:0"><b>World data:</b> taxonomy of 11,004 living species from the eBird/Clements Checklist (via the rOpenSci auk package); species IDs and English/Spanish names from the BirdNET taxonomy table; body mass, diet and foraging from EltonTraits 1.0 (Wilman et al. 2014); maps © OpenStreetMap, © CARTO, Leaflet; records, ranges, seasonality and confusion species from the iNaturalist API.</p>
+        <p style="margin:0"><b>World data:</b> taxonomy of 11,004 living species from the eBird/Clements Checklist (via the rOpenSci auk package); species IDs and English/Spanish names from the BirdNET taxonomy table; body mass, diet and foraging from EltonTraits 1.0 (Wilman et al. 2014); maps © OpenStreetMap contributors, Leaflet; records, ranges, seasonality and confusion species from the iNaturalist API.</p>
         <p style="margin:0"><b>Privacy:</b> no accounts, no analytics. Audio is analysed on the device. Location stays on the device and is only used for the location model and the iNaturalist query. Photos go to Anthropic only when you press Identify with your key.</p>
       </div>
     </details>

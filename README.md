@@ -11,4 +11,4 @@ https://michaandguadi-sys.github.io/aves-de-alem/
 
 Credits: BirdNET — Kahl, S., Wood, C. M., Eibl, M., & Klinck, H. (2021), Ecological Informatics 61, 101236;
 models CC BY-SA 4.0, worker code adapted from birdnet-team/birdnet-website (MIT). Personal, non-commercial use.
-Taxonomy: eBird/Clements Checklist. Traits: EltonTraits 1.0 (Wilman et al. 2014). Maps: © OpenStreetMap, © CARTO, Leaflet. iNaturalist media: licence per item. Wikipedia text: CC BY-SA.
+Taxonomy: eBird/Clements Checklist. Traits: EltonTraits 1.0 (Wilman et al. 2014). Maps: © OpenStreetMap contributors, Leaflet. iNaturalist media: licence per item. Wikipedia text: CC BY-SA.

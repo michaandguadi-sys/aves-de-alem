@@ -85,9 +85,9 @@ async function sheetSeason(id){const box=$('#season');if(!box||!id)return;
 let leafletP=null;
 function loadLeaflet(){if(window.L)return Promise.resolve();return leafletP||(leafletP=new Promise((res,rej)=>{const c=document.createElement('link');c.rel='stylesheet';c.href='https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.min.css';document.head.append(c);
   const s=document.createElement('script');s.src='https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.min.js';s.onload=res;s.onerror=()=>{leafletP=null;rej(new Error('map library'))};document.head.append(s)}))}
-function sheetMap(id){const box=$('#mapWrap');if(!box||!id)return;box.innerHTML=`<h3>Where it lives</h3><div class="card" style="padding:0;overflow:hidden"><div id="map" style="height:230px;background:var(--surface2)"></div><div class="row small muted" style="padding:8px 12px;justify-content:space-between"><span><span class="dot"></span>iNaturalist records · shaded: known range</span></div></div>`;
+function sheetMap(id){const box=$('#mapWrap');if(!box||!id)return;box.innerHTML=`<h3>Where it lives</h3><div class="card" style="padding:0;overflow:hidden"><div id="map" style="height:230px;background:var(--surface2)"></div><div class="row small muted" style="padding:8px 12px;justify-content:space-between"><span><span class="dot"></span>iNaturalist records · shaded: range map where available</span></div></div>`;
   const go=async()=>{try{await loadLeaflet();const el=$('#map');if(!el)return;const m=L.map(el,{zoomControl:false,attributionControl:true,worldCopyJump:true}).setView([loc.lat,loc.lon],2);
-    L.tileLayer('https://{s}.basemaps.cartocdn.com/rastertiles/voyager_nolabels/{z}/{x}/{y}{r}.png',{maxZoom:12,attribution:'© OpenStreetMap © CARTO · iNaturalist'}).addTo(m);
+    L.tileLayer('https://tile.openstreetmap.org/{z}/{x}/{y}.png',{maxZoom:12,className:'basemap',attribution:'© OpenStreetMap contributors · iNaturalist'}).addTo(m);
     L.tileLayer(`https://api.inaturalist.org/v1/taxon_ranges/${id}/{z}/{x}/{y}.png`,{opacity:.45,maxZoom:12}).addTo(m);
     L.tileLayer(`https://api.inaturalist.org/v1/grid/{z}/{x}/{y}.png?taxon_id=${id}&verifiable=true&color=%23D9572B`,{maxZoom:12,opacity:.85}).addTo(m);
     L.circleMarker([loc.lat,loc.lon],{radius:6,color:'#fff',weight:2,fillColor:'#2F6FB5',fillOpacity:1}).addTo(m).bindTooltip(loc.name||'You');
