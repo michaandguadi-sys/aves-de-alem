@@ -250,20 +250,20 @@ function groupOf(sci){const r=WORLD.ready&&WORLD.bySci.get(sci);let fam=r?WORLD.
   if(fam in FAM2G)return [FAM2G[fam],GROUPS[FAM2G[fam]][0]];
   if(ord==='Passeriformes')return [90,'Other songbirds'];return [80,(typeof ordName==='function'&&ordName(ord))||'Other birds']}
 let exploreSrc='guide',exploreCache={},geoListCache=null,exChip=LS.get('exChip',{guide:'all',near:'rec'}),exploreItems=[];
-const GUIDE_CHIPS=[['all','All'],['town','Town & gardens'],['farm','Fields & pasture'],['forest','Forest & edges'],['water','Water'],['night','Night'],['M','Spring migrants']];
-const NEAR_CHIPS=[['rec','Recorded'],['week','Expected this week']];
+const GUIDE_CHIPS=[['all','All'],['common','Common'],['uncommon','Uncommon'],['few','Few records'],['notes','With field notes']];
+const NEAR_CHIPS=[['rec','Last 30 days'],['week','Expected this week']];
 $('#exSeg').onclick=e=>{const b=e.target.closest('[data-src]');if(!b)return;exploreSrc=b.dataset.src;$('#exploreQ').value='';loadExplore()};
 $('#exploreHint').onclick=e=>e.currentTarget.classList.toggle('open');
 $('#exChips').onclick=e=>{const b=e.target.closest('[data-chip]');if(!b)return;exChip[exploreSrc]=b.dataset.chip;LS.set('exChip',exChip);loadExplore()};
 let qT=null;$('#exploreQ').oninput=()=>{clearTimeout(qT);qT=setTimeout(()=>$('#exploreQ').value.trim()?renderWorld():loadExplore(),160)};
 $('#exploreMore').onclick=()=>{};
-async function getInatLocal(){const k=`${loc.lat},${loc.lon},${I18N.lang},${RADIUS}`;if(exploreCache[k])return exploreCache[k];
-  const ck='local:'+k,c=LS.get(ck,null);if(c&&Date.now()-c.t<3*86400e3)return exploreCache[k]=c.d;
-  const url=p=>`${INAT2}/observations/species_counts?taxon_id=3&lat=${loc.lat}&lng=${loc.lon}&radius=${RADIUS}&quality_grade=research&locale=${I18N.lang}&per_page=200&page=${p}&fields=(count:!t,taxon:(id:!t,name:!t,rank:!t,preferred_common_name:!t,default_photo:(square_url:!t)))`;
+async function getInatLocal(days=0){const k=`${loc.lat},${loc.lon},${I18N.lang},${RADIUS},${days}`;if(exploreCache[k])return exploreCache[k];
+  const ck='local:'+k,c=LS.get(ck,null);if(c&&Date.now()-c.t<(days?0.5:3)*86400e3)return exploreCache[k]=c.d;const d1=days?'&d1='+new Date(Date.now()-days*864e5).toISOString().slice(0,10):'';
+  const url=p=>`${INAT2}/observations/species_counts?taxon_id=3&lat=${loc.lat}&lng=${loc.lon}&radius=${RADIUS}&quality_grade=research${d1}&locale=${I18N.lang}&per_page=200&page=${p}&fields=(count:!t,taxon:(id:!t,name:!t,rank:!t,preferred_common_name:!t,default_photo:(square_url:!t)))`;
   const get=async p=>{const r=await fetch(url(p));if(!r.ok)throw new Error('iNaturalist '+r.status);return r.json()};
-  const first=await get(1);let all=first.results;const pages=Math.min(3,Math.ceil(first.total_results/200));
+  const first=await get(1);let all=first.results;const pages=Math.min(5,Math.ceil(first.total_results/200));
   if(pages>1){const more=await Promise.all(Array.from({length:pages-1},(_,i)=>get(i+2).catch(()=>({results:[]}))));more.forEach(m=>all=all.concat(m.results))}
-  const d=all.filter(r=>r.taxon.rank==='species').map(r=>({sci:r.taxon.name,es:r.taxon.preferred_common_name||r.taxon.name,img:r.taxon.default_photo?.square_url||'',n:r.count,sub:`${r.count} records within ${RADIUS} km`}));
+  const d=all.filter(r=>r.taxon.rank==='species').map(r=>({sci:r.taxon.name,es:r.taxon.preferred_common_name||r.taxon.name,img:r.taxon.default_photo?.square_url||'',n:r.count,sub:days?`${r.count} records in the last ${days} days`:`${r.count} records within ${RADIUS} km`}));
   all.forEach(r=>{if(r.taxon.default_photo?.square_url)KNOWN_IMG['#'+r.taxon.id]=r.taxon.default_photo.square_url});d.forEach(x=>{if(x.img)KNOWN_IMG[x.sci]=x.img});saveKnown();LS.set(ck,{t:Date.now(),d});return exploreCache[k]=d}
 async function getGeoList(){if(geoListCache)return geoListCache;if(!bird.ready)return null;const r=await bird.call({type:'localList',thresh:0.05});
   return geoListCache=r.list.map(b=>({sci:b.sci,es:GUIDE[b.sci]?NM(GUIDE[b.sci]):(I18N.lang==='es'?b.es:b.en),img:'',n:b.geo,sub:`${Math.round(b.geo*100)}% likely this week`}))}
@@ -272,12 +272,19 @@ async function loadExplore(){const hint=$('#exploreHint'),box=$('#exploreList');
   $$('#exSeg button').forEach(x=>x.setAttribute('aria-pressed',x.dataset.src===exploreSrc));
   if(exploreSrc==='world'){$('#exChips').hidden=true;return renderWorld()}
   if(!WORLD.ready)await loadWorld().catch(()=>{});
-  try{if(exploreSrc==='guide'){const ch=exChip.guide||'all';renderChips(GUIDE_CHIPS,ch);
-      hint.textContent='55 common birds of Misiones with field marks, voice and science notes.';
-      exploreItems=Object.values(GUIDE).filter(g=>ch==='all'||(ch==='M'?g.sea!=='R':g.hab.includes(ch))).map(g=>({sci:g.sci,es:NM(g),img:'',sub:`${g.cm[0]}–${g.cm[1]} cm · ${I18N.lang==='es'?g.en:g.es}`}))}
+  try{if(exploreSrc==='guide'){let ch=exChip.guide||'all';if(!GUIDE_CHIPS.some(c=>c[0]===ch))ch='all';renderChips(GUIDE_CHIPS,ch);
+      let local=[];if(!(exploreItems.length&&exploreItems.guideKey===loc.lat+','+loc.lon+','+RADIUS))box.innerHTML='<div class="empty">Loading…</div>';
+      try{local=await getInatLocal()}catch(e){}
+      const where=loc.name||(loc.lat.toFixed(3)+', '+loc.lon.toFixed(3));
+      let list=local.map(x=>({...x,sub:GUIDE[x.sci]?x.sub+' · field notes':x.sub}));const have=new Set(list.map(x=>x.sci));
+      Object.values(GUIDE).forEach(g=>{if(!have.has(g.sci))list.push({sci:g.sci,es:NM(g),img:'',n:0,sub:`${g.cm[0]}–${g.cm[1]} cm · field notes`})});
+      const counts=local.map(x=>x.n).sort((p,q)=>q-p),t1=counts[Math.floor(counts.length/3)]??0,t2=counts[Math.floor(counts.length*2/3)]??0;
+      const ab=n=>n>=t1&&n>0?'common':n>=t2&&n>2?'uncommon':'few';list.forEach(x=>x.ab=ab(x.n||0));
+      hint.textContent=local.length?`${list.length} species recorded within ${RADIUS} km of ${where}. ${Object.keys(GUIDE).length} with full field notes. Most-recorded first.`:'Offline: showing the 55 guide species. Connect once to load every bird around you.';
+      exploreItems=list.filter(x=>ch==='all'||(ch==='notes'?GUIDE[x.sci]:x.ab===ch)).sort((p,q)=>(q.n||0)-(p.n||0));exploreItems.guideKey=loc.lat+','+loc.lon+','+RADIUS}
     else{const ch=exChip.near||'rec';renderChips(NEAR_CHIPS,ch);box.innerHTML='<div class="empty">Loading…</div>';
       if(ch==='week'){hint.textContent=`BirdNET location model: species expected at your location in week ${bnWeek()} (eBird-trained).`;const g=await getGeoList();if(!g){box.innerHTML='<div class="empty">Download the Sound ID model first (Sound tab). The location model comes with it.</div>';return}exploreItems=g}
-      else{hint.textContent=`Research-grade iNaturalist records within ${RADIUS} km of ${loc.name||(loc.lat.toFixed(3)+', '+loc.lon.toFixed(3))}, most-recorded first.`;exploreItems=await getInatLocal()}}
+      else{hint.textContent=`Birds recorded within ${RADIUS} km in the last 30 days (iNaturalist research-grade).`;exploreItems=await getInatLocal(30);if(!exploreItems.length){box.innerHTML='<div class="empty">No verified records in the last 30 days here yet. Your sightings could be the first.</div>';return}}}
     renderExplore()}catch(e){box.innerHTML=`<div class="empty">Could not load (${esc(e.message)}). Offline? The Guide list works offline.</div>`}}
 function renderExplore(){if(exploreSrc==='world')return renderWorld();const box=$('#exploreList');
   const groups=new Map();exploreItems.forEach(i=>{const [gi,gn]=groupOf(i.sci);if(!groups.has(gn))groups.set(gn,{gi,items:[]});groups.get(gn).items.push(i)});

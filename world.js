@@ -46,7 +46,7 @@ async function renderWorld(){const box=$('#exploreList'),hint=$('#exploreHint');
     crumbs=`› <button class="btn sm" data-nav="root">All birds</button> › <b>${esc(ordName(wv.order)||wv.order)}</b>`;hint.textContent=`${wv.order} · ${pl(wItems.length,'family','families')}`}
   else{const f=WORLD.f[wv.fam];wItems=WORLD.s.filter(r=>r[3]===wv.fam).map(r=>({r}));
     crumbs=`› <button class="btn sm" data-nav="root">All birds</button> › <button class="btn sm" data-nav="o:${esc(f[2])}">${esc(ordName(f[2])||f[2])}</button> › <b>${esc(f[0])}</b>`;hint.textContent=`${f[1]} · ${wItems.length} species`}
-  wShown=0;const back=q?'':`<button class="btn sm" data-nav="back">‹ ${esc(LS.get('exBack','guide')==='near'?'Nearby':'Guide')}</button>`;box.innerHTML=`<div class="row small" style="gap:6px">${back}${crumbs?' '+crumbs:''}</div><div class="grid2" id="wGrid"></div>`;moreWorld()}
+  wShown=0;const back=q?'':`<button class="btn sm" data-nav="back">‹ ${esc(LS.get('exBack','guide')==='near'?'Recent':'Guide')}</button>`;box.innerHTML=`<div class="row small" style="gap:6px">${back}${crumbs?' '+crumbs:''}</div><div class="grid2" id="wGrid"></div>`;moreWorld()}
 function moreWorld(){const box=$('#wGrid');if(!box)return;box.querySelector('.sentinel')?.remove();const next=wItems.slice(wShown,wShown+48);wShown+=next.length;
   box.insertAdjacentHTML('beforeend',next.map(i=>i.r?worldTile(i.r):navTile(i.nav,i.title,i.sub,i.inat)).join(''));
   if(wShown<wItems.length){box.insertAdjacentHTML('beforeend','<div class="sentinel" style="grid-column:1/-1;height:1px"></div>');sentObs&&sentObs.observe(box.querySelector('.sentinel'))}
