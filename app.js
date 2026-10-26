@@ -20,17 +20,33 @@ $$('nav.tabs button').forEach(b=>b.onclick=()=>showTab(b.dataset.t));
 
 /* ---------- location ---------- */
 function renderLoc(){$('#locBtn').innerHTML=`<svg viewBox="0 0 24 24" fill="currentColor"><path d="M12 2a7 7 0 0 0-7 7c0 5 7 13 7 13s7-8 7-13a7 7 0 0 0-7-7zm0 9.5A2.5 2.5 0 1 1 12 6.5a2.5 2.5 0 0 1 0 5z"/></svg>${esc(loc.name||(loc.lat.toFixed(2)+', '+loc.lon.toFixed(2)))}`;$('#locBtn').title='Week '+bnWeek()}
+let RADIUS=LS.get('radius',40);
+function parseCoords(q){const m=q.trim().match(/^(-?\d+(?:[.,]\d+)?)\s*[,;\s]\s*(-?\d+(?:[.,]\d+)?)$/);if(!m)return null;const la=+m[1].replace(',','.'),lo=+m[2].replace(',','.');return Math.abs(la)<=90&&Math.abs(lo)<=180?{lat:la,lon:lo}:null}
 $('#locBtn').onclick=()=>{
   openSheet(`<div class="bar"><span></span><button class="btn sm" data-close>Done</button></div><div class="title">Location</div>
-  <p class="muted" style="margin:4px 0 16px">Used for the BirdNET location filter and iNaturalist records nearby. Stays on this device.</p>
-  <div class="stack"><button class="btn primary block" id="gpsBtn">Use my current location</button><button class="btn block" id="alemBtn">Leandro N. Alem (default)</button>
+  <p class="muted" style="margin:4px 0 12px">Nearby shows the birds recorded in this radius. Also used by the BirdNET location filter. Stays on this device.</p>
+  <div class="stack">
+  <input type="search" id="placeQ" placeholder="Town, park, region or coordinates" aria-label="Search a place" autocomplete="off">
+  <div id="placeRes" class="group" hidden></div><p class="status" id="gpsMsg"></p>
+  <button class="btn primary block" id="gpsBtn">Use my current location</button><button class="btn block" id="alemBtn">Leandro N. Alem (default)</button>
+  <h3 style="margin:10px 4px 0">Radius</h3><div class="seg" id="radSeg" role="group" aria-label="Radius">${[10,25,40,100].map(r=>`<button data-r="${r}" aria-pressed="${r===RADIUS}">${r} km</button>`).join('')}</div>
   <h3 style="margin:10px 4px 0">Coordinates</h3><div class="group"><div class="cell" style="cursor:default"><label class="grow" for="latI">Latitude</label><input type="number" id="latI" step="0.001" value="${loc.lat}" style="max-width:150px;text-align:right"></div><div class="cell" style="cursor:default"><label class="grow" for="lonI">Longitude</label><input type="number" id="lonI" step="0.001" value="${loc.lon}" style="max-width:150px;text-align:right"></div></div>
-  <button class="btn block" id="manBtn">Set coordinates</button><p class="status" id="gpsMsg"></p></div>`);
+  <button class="btn block" id="manBtn">Set coordinates</button></div>`);
   $('#gpsBtn').onclick=()=>{$('#gpsMsg').textContent='Locating…';navigator.geolocation.getCurrentPosition(p=>{setLoc({lat:+p.coords.latitude.toFixed(4),lon:+p.coords.longitude.toFixed(4),name:'My position'})},e=>{$('#gpsMsg').textContent='Location not available: '+e.message},{enableHighAccuracy:false,timeout:15000})};
   $('#alemBtn').onclick=()=>setLoc(DEFAULT_LOC);
   $('#manBtn').onclick=()=>{const la=+$('#latI').value,lo=+$('#lonI').value;if(Math.abs(la)<=90&&Math.abs(lo)<=180)setLoc({lat:la,lon:lo,name:''})};
+  $('#radSeg').onclick=e=>{const b=e.target.closest('[data-r]');if(!b)return;RADIUS=+b.dataset.r;LS.set('radius',RADIUS);$$('#radSeg button').forEach(x=>x.setAttribute('aria-pressed',x===b));exploreCache={};if(!$('#t-explore').hidden)loadExplore();tick()};
+  let pT=null,pAbort=null;
+  $('#placeQ').oninput=()=>{clearTimeout(pT);const q=$('#placeQ').value.trim();const box=$('#placeRes');if(q.length<2){box.hidden=true;return}
+    const c=parseCoords(q);if(c){box.hidden=false;box.innerHTML=`<button class="cell" data-lat="${c.lat}" data-lon="${c.lon}" data-name=""><span class="grow"><b>${c.lat.toFixed(4)}, ${c.lon.toFixed(4)}</b><br><span class="small muted">Use these coordinates</span></span></button>`;return}
+    pT=setTimeout(async()=>{pAbort?.abort();pAbort=new AbortController();$('#gpsMsg').textContent='Searching…';
+      try{const r=await fetch(`https://nominatim.openstreetmap.org/search?format=jsonv2&limit=6&addressdetails=0&accept-language=${I18N.lang}&q=${encodeURIComponent(q)}`,{signal:pAbort.signal});const d=await r.json();
+        $('#gpsMsg').textContent='';box.hidden=false;box.innerHTML=d.length?d.map(p=>{const short=p.name||p.display_name.split(',')[0];return `<button class="cell" data-lat="${(+p.lat).toFixed(4)}" data-lon="${(+p.lon).toFixed(4)}" data-name="${esc(short)}"><span class="grow"><b>${esc(short)}</b><br><span class="small muted">${esc(p.display_name)}</span></span></button>`}).join(''):'<p class="small muted" style="padding:12px 16px;margin:0">No place found. Try another spelling or type coordinates.</p>'}
+      catch(e){if(e.name!=='AbortError')$('#gpsMsg').textContent='Place search needs internet. You can still type coordinates.'}},450)};
+  $('#placeRes').onclick=e=>{const b=e.target.closest('[data-lat]');if(b)setLoc({lat:+b.dataset.lat,lon:+b.dataset.lon,name:b.dataset.name})};
+  setTimeout(()=>$('#placeQ')?.focus(),350);
 };
-function setLoc(l){loc=l;LS.set('loc',l);LS.set('locSet',true);if($('#locHint'))$('#locHint').hidden=true;renderLoc();closeSheet();exploreCache={};if(bird.ready)bird.call({type:'location',lat:l.lat,lon:l.lon,week:bnWeek()},'located').then(()=>{geoListCache=null;toast('Location updated')});else toast('Location updated')}
+function setLoc(l){loc=l;LS.set('loc',l);LS.set('locSet',true);if($('#locHint'))$('#locHint').hidden=true;renderLoc();closeSheet();exploreCache={};quizPool=null;if(!$('#t-explore').hidden)loadExplore();if(bird.ready)bird.call({type:'location',lat:l.lat,lon:l.lon,week:bnWeek()},'located').then(()=>{geoListCache=null;if(!$('#t-explore').hidden&&exploreSrc==='geo')loadExplore();toast('Location updated')});else toast('Location updated')}
 renderLoc();
 
 /* ---------- BirdNET worker ---------- */
@@ -208,19 +224,19 @@ let exploreSrc='inat',exploreCache={},geoListCache=null,exploreShown=60;
 $$('#t-explore .seg button').forEach(b=>b.onclick=()=>{exploreSrc=b.dataset.src;$$('#t-explore .seg button').forEach(x=>x.setAttribute('aria-pressed',x===b));exploreShown=60;loadExplore()});
 let qT=null;$('#exploreQ').oninput=()=>{exploreShown=60;if(exploreSrc==='world'){clearTimeout(qT);qT=setTimeout(renderWorld,160)}else renderExplore()};
 $('#exploreMore').onclick=()=>{exploreShown+=60;renderExplore()};
-async function getInatLocal(){const k=`${loc.lat},${loc.lon},${I18N.lang}`;if(exploreCache[k])return exploreCache[k];
+async function getInatLocal(){const k=`${loc.lat},${loc.lon},${I18N.lang},${RADIUS}`;if(exploreCache[k])return exploreCache[k];
   const ck='local:'+k,c=LS.get(ck,null);if(c&&Date.now()-c.t<3*86400e3)return exploreCache[k]=c.d;
-  const url=p=>`${INAT2}/observations/species_counts?taxon_id=3&lat=${loc.lat}&lng=${loc.lon}&radius=40&quality_grade=research&locale=${I18N.lang}&per_page=200&page=${p}&fields=(count:!t,taxon:(id:!t,name:!t,rank:!t,preferred_common_name:!t,default_photo:(square_url:!t)))`;
+  const url=p=>`${INAT2}/observations/species_counts?taxon_id=3&lat=${loc.lat}&lng=${loc.lon}&radius=${RADIUS}&quality_grade=research&locale=${I18N.lang}&per_page=200&page=${p}&fields=(count:!t,taxon:(id:!t,name:!t,rank:!t,preferred_common_name:!t,default_photo:(square_url:!t)))`;
   const get=async p=>{const r=await fetch(url(p));if(!r.ok)throw new Error('iNaturalist '+r.status);return r.json()};
   const first=await get(1);let all=first.results;const pages=Math.min(3,Math.ceil(first.total_results/200));
   if(pages>1){const more=await Promise.all(Array.from({length:pages-1},(_,i)=>get(i+2).catch(()=>({results:[]}))));more.forEach(m=>all=all.concat(m.results))}
-  const d=all.filter(r=>r.taxon.rank==='species').map(r=>({sci:r.taxon.name,es:r.taxon.preferred_common_name||r.taxon.name,img:r.taxon.default_photo?.square_url||'',sub:`${r.count} records within 40 km`}));
+  const d=all.filter(r=>r.taxon.rank==='species').map(r=>({sci:r.taxon.name,es:r.taxon.preferred_common_name||r.taxon.name,img:r.taxon.default_photo?.square_url||'',sub:`${r.count} records within ${RADIUS} km`}));
   all.forEach(r=>{if(r.taxon.default_photo?.square_url)KNOWN_IMG['#'+r.taxon.id]=r.taxon.default_photo.square_url});d.forEach(x=>{if(x.img)KNOWN_IMG[x.sci]=x.img});saveKnown();LS.set(ck,{t:Date.now(),d});return exploreCache[k]=d}
 async function getGeoList(){if(geoListCache)return geoListCache;if(!bird.ready)return null;const r=await bird.call({type:'localList',thresh:0.05});
   return geoListCache=r.list.map(b=>({sci:b.sci,es:GUIDE[b.sci]?NM(GUIDE[b.sci]):(I18N.lang==='es'?b.es:b.en),img:'',sub:`${Math.round(b.geo*100)}% likely this week`}))}
 let exploreItems=[];
 async function loadExplore(){const hint=$('#exploreHint');if(exploreSrc==='world'){$('#exploreMore').hidden=true;return renderWorld()}$('#exploreList').innerHTML='<div class="empty">Loading…</div>';
-  try{if(exploreSrc==='inat'){hint.textContent='Research-grade iNaturalist observations within 40 km, most-recorded first.';exploreItems=await getInatLocal()}
+  try{if(exploreSrc==='inat'){hint.textContent=`Research-grade iNaturalist records within ${RADIUS} km of ${loc.name||(loc.lat.toFixed(3)+', '+loc.lon.toFixed(3))}, most-recorded first.`;exploreItems=await getInatLocal()}
     else if(exploreSrc==='geo'){hint.textContent=`BirdNET location model: species expected at your location in week ${bnWeek()} (eBird-trained).`;const g=await getGeoList();if(!g){$('#exploreList').innerHTML='<div class="empty">Download the Sound ID model first (Sound tab). The location model comes with it.</div>';return}exploreItems=g}
     else{hint.textContent='The 55 species of the Aves de Alem guide, with field marks and science notes.';exploreItems=Object.values(GUIDE).map(g=>({sci:g.sci,es:NM(g),img:'',sub:`${I18N.lang==='es'?g.en:g.es} · ${g.cm[0]}–${g.cm[1]} cm`}))}
     renderExplore()}catch(e){$('#exploreList').innerHTML=`<div class="empty">Could not load (${esc(e.message)}). Offline? The Guide list works offline.</div>`}}
