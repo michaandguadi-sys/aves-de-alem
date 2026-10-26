@@ -49,7 +49,7 @@ const bird={w:null,ready:false,loading:false,busy:false,seq:0,pending:{},
     const id=++this.seq;return new Promise((res,rej)=>{this.pending[id]={res,rej};this.w.postMessage({...msg,id},msg.pcm?[]:undefined)})}
 };
 $('#loadModel').onclick=()=>bird.start().catch(()=>{});
-if(LS.get('modelWanted',false))bird.start().catch(()=>{});
+if(LS.get('modelWanted',false)){const go=()=>bird.start().catch(()=>{});'requestIdleCallback' in window?requestIdleCallback(go,{timeout:2500}):setTimeout(go,1200)}
 
 /* ---------- live listening ---------- */
 const MIC_ICON=$('#listenBtn').innerHTML, STOP_ICON='<svg viewBox="0 0 24 24" fill="currentColor"><rect x="6" y="6" width="12" height="12" rx="2.5"/></svg>';
@@ -124,9 +124,15 @@ async function taxonBySci(sci){const k='tx:'+sci;if(mem[k])return mem[k];const c
   const slim=t?{id:t.id,name:t.name,es:t.preferred_common_name||'',photo:t.default_photo?.medium_url||t.default_photo?.square_url||'',sq:t.default_photo?.square_url||''}:null;
   mem[k]=slim;if(slim)LS.set(k,slim);return slim}
 /* lazy photo thumbnails, one request at a time */
-const photoQ=[];let photoBusy=false;
-function hydratePhotos(root){root.querySelectorAll('img[data-photo]:not([src])').forEach(img=>{if(img.dataset.queued)return;img.dataset.queued=1;photoQ.push(img)});pumpPhotos()}
-async function pumpPhotos(){if(photoBusy)return;photoBusy=true;while(photoQ.length){const img=photoQ.shift();if(!img.isConnected)continue;try{const t=await taxonBySci(img.dataset.photo);if(t&&t.sq)img.src=t.sq;else img.alt='no photo'}catch(e){break}}photoBusy=false}
+const photoQ=[];let photoActive=0;const KNOWN_IMG=LS.get('knownImg',{});
+function hydratePhotos(root){root.querySelectorAll('img[data-photo]:not([src])').forEach(img=>{if(img.dataset.queued)return;img.dataset.queued=1;img.decoding='async';const k=KNOWN_IMG[img.dataset.photo];if(k){img.src=k;return}photoQ.push(img)});pumpPhotos();watchUp(root)}
+function pumpPhotos(){while(photoActive<6&&photoQ.length){const img=photoQ.shift();if(!img.isConnected)continue;photoActive++;
+  taxonBySci(img.dataset.photo).then(t=>{if(t&&t.sq){img.src=t.sq;KNOWN_IMG[img.dataset.photo]=t.sq}else img.alt='no photo'}).catch(()=>{}).finally(()=>{photoActive--;pumpPhotos();saveKnown()})}}
+const SZ=(u,z)=>u?u.replace(/\/(square|thumb|small|medium|large)\.(jpe?g|png|gif|webp)/i,`/${z}.$2`):u;
+const upObs='IntersectionObserver' in window?new IntersectionObserver(es=>es.forEach(e=>{if(e.isIntersecting){upObs.unobserve(e.target);upgrade(e.target)}}),{rootMargin:'300px'}):null;
+function upgrade(img){const z=img.closest('.gallery,#quizBox')?'large':img.closest('.tile')?'medium':'small';const big=SZ(img.src,z);if(!big||big===img.src)return;const p=new Image();p.decoding='async';p.onload=()=>{img.src=big};p.src=big}
+function watchUp(root){if(!root)return;root.querySelectorAll('img:not([data-own])').forEach(img=>{if(img.dataset.w)return;img.dataset.w=1;const go=()=>upObs?upObs.observe(img):upgrade(img);if(img.complete&&img.naturalWidth)go();else img.addEventListener('load',go,{once:true})})}
+let knownT=null;function saveKnown(){clearTimeout(knownT);knownT=setTimeout(()=>LS.set('knownImg',KNOWN_IMG),800)}
 
 /* ---------- species sheet ---------- */
 function openSheet(html){const wasOpen=$('#sheet').classList.contains('open');$('#sheetIn').innerHTML=html;$('#sheet').scrollTop=0;$('#sheet').classList.add('open');$('#backdrop').classList.add('open');document.body.style.overflow='hidden';if(!wasOpen)history.pushState({sheet:1},'')}
@@ -142,8 +148,10 @@ async function openSpecies(sci,ctx={}){const g=GUIDE[sci];
   <div class="gallery" id="gal"><figure><img alt=""></figure></div>
   <div id="geoLine" class="small muted"></div>
   ${g?guideBlock(g):''}
+  <div id="facts"></div>
   <h3>Sounds</h3><div id="snds" class="group"><p class="small muted" style="padding:12px 16px;margin:0">Loading recordings…</p></div>
   <h3>About</h3><div id="wiki" class="card">Loading…</div>
+  <div id="wikiMore" class="stack" style="margin-top:12px"></div>
   <h3>More</h3><div class="row">
    <a class="btn sm" target="_blank" rel="noopener" href="https://xeno-canto.org/species/${esc(sci.replace(' ','-'))}">xeno-canto</a>
    <a class="btn sm" target="_blank" rel="noopener" href="https://www.inaturalist.org/taxa/search?q=${encodeURIComponent(sci)}">iNaturalist</a>
@@ -160,6 +168,7 @@ async function openSpecies(sci,ctx={}){const g=GUIDE[sci];
     $('#gal').innerHTML=ph.length?ph.map(p=>`<figure><img loading="lazy" src="${esc(p.medium_url||p.url)}" alt="${esc(sci)}"><figcaption>${esc(p.attribution||'')}</figcaption></figure>`).join(''):'<p class="muted small">No photos on iNaturalist.</p>';
     let wk=tx.wikipedia_summary;if(!wk){try{wk=(await inat(`/taxa/${t.id}?locale=en`)).results[0].wikipedia_summary}catch(e){}}
     $('#wiki').innerHTML=wk?`<p style="margin:0">${wk.replace(/<(?!\/?(i|b|em|strong)\b)[^>]*>/g,'')}</p><p class="small muted">Wikipedia (CC BY-SA) via iNaturalist.</p>`:'<p class="small">No summary available.</p>';
+    watchUp($('#gal'));renderFacts(tx);loadWiki(sci);
     const sounds=[];(obs.results||[]).forEach(o=>(o.sounds||[]).forEach(s=>{if(s.file_url)sounds.push({url:s.file_url,att:s.attribution||o.user?.login||'',lic:s.license_code||'',place:o.place_guess||''})}));
     $('#snds').innerHTML=sounds.length?sounds.slice(0,6).map(s=>`<div class="sound"><audio controls preload="none" src="${esc(s.url)}"></audio><div class="small muted">${esc(s.att)}${s.lic?' · '+esc(s.lic.toUpperCase()):''}${s.place?' · '+esc(s.place):''}</div></div>`).join(''):`<p class="small muted" style="padding:12px 16px;margin:0">No research-grade recordings on iNaturalist. Try xeno-canto below.</p>`;
   }catch(e){$('#gal').innerHTML='';$('#snds').innerHTML=`<p class="small muted" style="padding:12px 16px;margin:0">Offline or not found (${esc(e.message)}). Links below open the species online.</p>`;$('#wiki').textContent=''}}
@@ -168,14 +177,36 @@ function guideBlock(g){return `<h3>Field guide</h3><div class="card stack"><div 
   <dl class="kv"><dt>Voice</dt><dd>${esc(g.voice)}</dd><dt>Behaviour</dt><dd>${esc(g.beh)}</dd><dt>Name</dt><dd>${esc(g.etym)}</dd></dl>
   <div class="note"><b>Why it matters.</b> ${esc(g.note)}</div></div>`}
 
+const WIKI_SKIP=/^(references|external links|see also|further reading|notes|gallery|bibliography|citations|sources|footnotes)$/i;
+const WIKI_ORDER=['description','identification','taxonomy','distribution','habitat','behaviour','behavior','ecology','diet','feeding','breeding','reproduction','voice','vocal','status','conservation','relationship'];
+async function loadWiki(sci){if(!$('#wikiMore'))return;
+  try{const u=`https://en.wikipedia.org/w/api.php?action=query&prop=extracts|info&inprop=url&explaintext=1&exsectionformat=wiki&redirects=1&format=json&origin=*&titles=${encodeURIComponent(sci)}`;
+    const k='wiki:'+sci;let d=mem[k];if(!d){const r=await fetch(u);d=await r.json();mem[k]=d}
+    const pg=Object.values(d.query?.pages||{})[0];const box=$('#wikiMore');if(!box||!pg||pg.missing!==undefined||!pg.extract)return;
+    const parts=pg.extract.split(/\n==\s*([^=\n]+?)\s*==\n/);const secs=[];
+    for(let i=1;i<parts.length;i+=2){const name=parts[i].trim(),body=(parts[i+1]||'').replace(/\n===+\s*([^=\n]+?)\s*===+\n/g,'\n\n$1:\n').trim();if(!WIKI_SKIP.test(name)&&body.length>40)secs.push({name,body})}
+    const rank=n=>{const l=n.toLowerCase();const i=WIKI_ORDER.findIndex(w=>l.includes(w));return i<0?99:i};
+    secs.sort((a,b)=>rank(a.name)-rank(b.name));if(!secs.length)return;
+    box.innerHTML=`<div class="group">${secs.slice(0,9).map((s,i)=>`<details${i===0?' open':''}><summary class="cell"><span class="grow"><b>${esc(s.name)}</b></span><svg class="chev" width="8" height="14" viewBox="0 0 8 14"><path d="M1 1l6 6-6 6" stroke="currentColor" stroke-width="2" fill="none" stroke-linecap="round"/></svg></summary><div style="padding:0 16px 14px">${s.body.slice(0,3000).split(/\n+/).filter(Boolean).map(p=>`<p style="margin:0 0 10px">${esc(p)}</p>`).join('')}${s.body.length>3000?'<p class="small muted">…continued on Wikipedia</p>':''}</div></details>`).join('')}</div><p class="foot">Text: <a href="${esc(pg.fullurl||'https://en.wikipedia.org/wiki/'+encodeURIComponent(sci))}" target="_blank" rel="noopener">English Wikipedia</a>, CC BY-SA 4.0.</p>`}catch(e){}}
+function renderFacts(tx){const box=$('#facts');if(!box||!tx)return;const anc=tx.ancestors||[];const by=r=>anc.find(a=>a.rank===r);
+  const ord=by('order'),fam=by('family'),cs=tx.conservation_status;
+  const IUCN={LC:'Least Concern',NT:'Near Threatened',VU:'Vulnerable',EN:'Endangered',CR:'Critically Endangered',EW:'Extinct in the Wild',EX:'Extinct',DD:'Data Deficient'};
+  const st=cs?(IUCN[(cs.status||'').toUpperCase()]||cs.status_name||cs.status):'';
+  const rows=[['Order',ord&&(ord.name+(ord.preferred_common_name?' · '+ord.preferred_common_name:''))],['Family',fam&&(fam.name+(fam.preferred_common_name?' · '+fam.preferred_common_name:''))],['Status',st&&(st+(cs.authority?' ('+cs.authority+')':''))],['Observations',tx.observations_count&&tx.observations_count.toLocaleString()+' on iNaturalist worldwide'],['English name',tx.english_common_name]].filter(r=>r[1]);
+  if(rows.length)box.innerHTML=`<h3>Facts</h3><div class="group">${rows.map(([k,v])=>`<div class="cell" style="cursor:default;align-items:flex-start"><span class="muted" style="min-width:104px">${k}</span><span class="grow">${esc(v)}</span></div>`).join('')}</div>`}
 /* ---------- explore ---------- */
 let exploreSrc='inat',exploreCache={},geoListCache=null,exploreShown=60;
 $$('#t-explore .seg button').forEach(b=>b.onclick=()=>{exploreSrc=b.dataset.src;$$('#t-explore .seg button').forEach(x=>x.setAttribute('aria-pressed',x===b));exploreShown=60;loadExplore()});
 $('#exploreQ').oninput=()=>{exploreShown=60;renderExplore()};
 $('#exploreMore').onclick=()=>{exploreShown+=60;renderExplore()};
 async function getInatLocal(){const k=`${loc.lat},${loc.lon}`;if(exploreCache[k])return exploreCache[k];
-  let all=[];for(let page=1;page<=3;page++){const d=await inat(`/observations/species_counts?taxon_id=3&lat=${loc.lat}&lng=${loc.lon}&radius=40&quality_grade=research&locale=es&per_page=200&page=${page}`,3*86400e3);all=all.concat(d.results);if(all.length>=d.total_results)break}
-  return exploreCache[k]=all.filter(r=>r.taxon.rank==='species').map(r=>({sci:r.taxon.name,es:r.taxon.preferred_common_name||r.taxon.name,img:r.taxon.default_photo?.square_url||'',sub:`${r.count} records within 40 km`}))}
+  const ck='local:'+k,c=LS.get(ck,null);if(c&&Date.now()-c.t<3*86400e3)return exploreCache[k]=c.d;
+  const url=p=>`${INAT}/observations/species_counts?taxon_id=3&lat=${loc.lat}&lng=${loc.lon}&radius=40&quality_grade=research&locale=es&per_page=200&page=${p}`;
+  const get=async p=>{const r=await fetch(url(p));if(!r.ok)throw new Error('iNaturalist '+r.status);return r.json()};
+  const first=await get(1);let all=first.results;const pages=Math.min(3,Math.ceil(first.total_results/200));
+  if(pages>1){const more=await Promise.all(Array.from({length:pages-1},(_,i)=>get(i+2).catch(()=>({results:[]}))));more.forEach(m=>all=all.concat(m.results))}
+  const d=all.filter(r=>r.taxon.rank==='species').map(r=>({sci:r.taxon.name,es:r.taxon.preferred_common_name||r.taxon.name,img:r.taxon.default_photo?.square_url||'',sub:`${r.count} records within 40 km`}));
+  d.forEach(x=>{if(x.img)KNOWN_IMG[x.sci]=x.img});saveKnown();LS.set(ck,{t:Date.now(),d});return exploreCache[k]=d}
 async function getGeoList(){if(geoListCache)return geoListCache;if(!bird.ready)return null;const r=await bird.call({type:'localList',thresh:0.05});
   return geoListCache=r.list.map(b=>({sci:b.sci,es:GUIDE[b.sci]?.es||b.es,img:'',sub:`${Math.round(b.geo*100)}% likely this week`}))}
 let exploreItems=[];
@@ -238,7 +269,7 @@ async function nextQuiz(){const box=$('#quizBox');box.innerHTML='<p class="muted
       box.querySelectorAll('.quizopts button').forEach(x=>x.classList.add(x.dataset.s===ans.sci?'ok':(x===b?'no':'x')));
       const g=GUIDE[ans.sci];$('#qfb').innerHTML=`<p style="margin:8px 0">${ok?'Correct!':'It was <b>'+esc(g?.es||ans.es)+'</b>.'} ${g?esc(quizType==='sound'?g.voice:g.marks.join('; ')):''}</p><div class="row"><button class="btn primary" id="qNext">Next bird</button><button class="btn" id="qOpen">Open species</button></div>`;
       $('#qNext').onclick=()=>{box.dataset.done='0';nextQuiz()};$('#qOpen').onclick=()=>openSpecies(ans.sci)});
-    box.dataset.done='0';
+    box.dataset.done='0';watchUp(box);
   }catch(e){box.innerHTML=`<p class="muted">Quiz needs a connection to iNaturalist (${esc(e.message)}).</p><button class="btn" id="qRetry">Try again</button>`;$('#qRetry').onclick=nextQuiz}}
 const METHOD=`<div class="card prose"><h2 style="margin-top:0">GISS first, colour last</h2><p>Experts start with the General Impression of Size and Shape, then behaviour and habitat, then field marks, then voice.</p>
 <div class="tw"><table><thead><tr><th>Reference bird</th><th>Length</th></tr></thead><tbody><tr><td>Chingolo</td><td class="mono">≈14 cm</td></tr><tr><td>Benteveo / Zorzal</td><td class="mono">≈22–24 cm</td></tr><tr><td>Paloma picazuró</td><td class="mono">≈35 cm</td></tr><tr><td>Carancho</td><td class="mono">≈55 cm</td></tr></tbody></table></div>

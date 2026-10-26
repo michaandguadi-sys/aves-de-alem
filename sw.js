@@ -1,5 +1,5 @@
 /* Aves de Alem service worker: offline shell, offline BirdNET model, cached iNaturalist data. */
-const V = 'v3';
+const V = 'v4';
 const SHELL = 'shell-' + V, MODEL = 'model-v24', DATA = 'inat-' + V, IMG = 'img-' + V;
 const SHELL_FILES = ['./index.html', './app.js', './guide.js', './worker.js', './manifest.webmanifest', './icon.svg', './icon-192.png', './icon-512.png', './icon-180.png'];
 
@@ -45,7 +45,7 @@ self.addEventListener('fetch', e => {
     e.respondWith(cacheFirst(req, MODEL));
     return;
   }
-  if (u.host === 'api.inaturalist.org') {
+  if (u.host === 'api.inaturalist.org' || u.host.endsWith('wikipedia.org')) {
     e.respondWith(networkFirst(req, DATA));
     e.waitUntil(trim(DATA, 400));
     return;
