@@ -65,7 +65,8 @@ body.counting .app{padding-bottom:calc(150px + env(safe-area-inset-bottom,0px))}
 .mis .grow{flex:1;min-width:0}
 .mis b{font:600 15px/1.25 var(--font)}
 .mis .ok{color:var(--green);font-weight:700}
-.top .eyebrow{white-space:nowrap}
+.top .eyebrow{white-space:nowrap;flex:none}
+#locBtn{flex:0 1 auto!important;min-width:0!important;max-width:min(44vw,128px)!important;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
 .v2tag{font:700 10px var(--font);letter-spacing:.06em;background:var(--tint);color:var(--tint-ink);border-radius:5px;padding:2px 5px;margin-left:6px;vertical-align:2px}
 </style>`);
 
@@ -353,6 +354,9 @@ const startCard=()=>active()?'':`<div class="card cstart cstartWrap"><div class=
 function wireStart(root){root.querySelectorAll('[data-cstart]').forEach(b=>b.onclick=startCount)}
 $('#t-sound').insertAdjacentHTML('afterbegin',startCard());wireStart($('#t-sound'));
 $('.top .eyebrow').insertAdjacentHTML('beforeend','<span class="v2tag" title="Version 2 test">v2</span>');
+
+/* ---------- backups include checklists (and a restore brings them back) ---------- */
+BACKUP_EXT.push({key:'checklists',get:()=>SDB.all(),put:async list=>{for(const cl of list||[]){if(!CL.some(c=>c.id===cl.id)){await SDB.put(cl);CL.push(cl)}}}});
 
 /* ---------- boot ---------- */
 SDB.all().then(a=>{CL.push(...a);renderGameBits()}).catch(()=>{});

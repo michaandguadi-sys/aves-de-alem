@@ -250,12 +250,19 @@ function groupOf(sci){const r=WORLD.ready&&WORLD.bySci.get(sci);let fam=r?WORLD.
   if(fam in FAM2G)return [FAM2G[fam],GROUPS[FAM2G[fam]][0]];
   if(ord==='Passeriformes')return [90,'Other songbirds'];return [80,(typeof ordName==='function'&&ordName(ord))||'Other birds']}
 let exploreSrc='guide',exploreCache={},geoListCache=null,exChip=LS.get('exChip',{guide:'all',near:'rec'}),exploreItems=[];
-const GUIDE_CHIPS=[['all','All'],['common','Common'],['uncommon','Uncommon'],['few','Few records'],['notes','With field notes']];
+const GUIDE_CHIPS=[['all','All'],['common','Common'],['unseen','Not seen yet'],['uncommon','Uncommon'],['few','Few records'],['notes','With field notes']];
+let exSort=LS.get('exSort','seen'),guidePool=[];
+const mySpecies=()=>new Set(G.sightings.map(s=>s.sci));
 const NEAR_CHIPS=[['rec','Last 30 days'],['week','Expected this week']];
 $('#exSeg').onclick=e=>{const b=e.target.closest('[data-src]');if(!b)return;exploreSrc=b.dataset.src;$('#exploreQ').value='';loadExplore()};
 $('#exploreHint').onclick=e=>e.currentTarget.classList.toggle('open');
 $('#exChips').onclick=e=>{const b=e.target.closest('[data-chip]');if(!b)return;exChip[exploreSrc]=b.dataset.chip;LS.set('exChip',exChip);loadExplore()};
-let qT=null;$('#exploreQ').oninput=()=>{clearTimeout(qT);qT=setTimeout(()=>$('#exploreQ').value.trim()?renderWorld():loadExplore(),160)};
+let qT=null;$('#exploreQ').oninput=()=>{clearTimeout(qT);qT=setTimeout(async()=>{const q=$('#exploreQ').value.trim();if(!q)return loadExplore();$('#exSort').hidden=true;await renderWorld();if($('#exploreQ').value.trim()===q)localFirst(q)},160)};
+$('#exSort').onclick=()=>{exSort=exSort==='seen'?'group':'seen';LS.set('exSort',exSort);renderExplore()};
+function localFirst(q){const pool=guidePool.length?guidePool:Object.values(GUIDE).map(g=>({sci:g.sci,es:NM(g),n:0,sub:''}));const t=fold(q).split(/\s+/).filter(Boolean);
+  const hit=pool.filter(x=>{const f=fold(x.sci+' '+x.es+' '+(GUIDE[x.sci]?GUIDE[x.sci].en+' '+GUIDE[x.sci].es:''));return t.every(w=>f.includes(w))}).sort((p,q)=>(q.n||0)-(p.n||0)).slice(0,40);
+  if(!hit.length)return;const box=$('#exploreList'),mine=mySpecies();
+  box.insertAdjacentHTML('afterbegin',`<h3 style="margin:4px 4px 6px">Around you <span class="cnt">${hit.length}</span></h3><div class="list" style="margin-bottom:6px">${hit.map(i=>birdRow(i,mine,0)).join('')}</div><h3 style="margin:10px 4px 6px">Worldwide</h3>`);hydratePhotos(box)}
 $('#exploreMore').onclick=()=>{};
 async function getInatLocal(days=0){const k=`${loc.lat},${loc.lon},${I18N.lang},${RADIUS},${days}`;if(exploreCache[k])return exploreCache[k];
   const ck='local:'+k,c=LS.get(ck,null);if(c&&Date.now()-c.t<(days?0.5:3)*86400e3)return exploreCache[k]=c.d;const d1=days?'&d1='+new Date(Date.now()-days*864e5).toISOString().slice(0,10):'';
@@ -281,16 +288,22 @@ async function loadExplore(){const hint=$('#exploreHint'),box=$('#exploreList');
       const counts=local.map(x=>x.n).sort((p,q)=>q-p),t1=counts[Math.floor(counts.length/3)]??0,t2=counts[Math.floor(counts.length*2/3)]??0;
       const ab=n=>n>=t1&&n>0?'common':n>=t2&&n>2?'uncommon':'few';list.forEach(x=>x.ab=ab(x.n||0));
       hint.textContent=local.length?`${list.length} species recorded within ${RADIUS} km of ${where}. ${Object.keys(GUIDE).length} with full field notes. Most-recorded first.`:'Offline: showing the 55 guide species. Connect once to load every bird around you.';
-      exploreItems=list.filter(x=>ch==='all'||(ch==='notes'?GUIDE[x.sci]:x.ab===ch)).sort((p,q)=>(q.n||0)-(p.n||0));exploreItems.guideKey=loc.lat+','+loc.lon+','+RADIUS}
+      guidePool=list;const mine=mySpecies();exploreItems=list.filter(x=>ch==='all'||(ch==='notes'?GUIDE[x.sci]:ch==='unseen'?!mine.has(x.sci):x.ab===ch)).sort((p,q)=>(q.n||0)-(p.n||0));exploreItems.guideKey=loc.lat+','+loc.lon+','+RADIUS}
     else{const ch=exChip.near||'rec';renderChips(NEAR_CHIPS,ch);box.innerHTML='<div class="empty">Loading…</div>';
       if(ch==='week'){hint.textContent=`BirdNET location model: species expected at your location in week ${bnWeek()} (eBird-trained).`;const g=await getGeoList();if(!g){box.innerHTML='<div class="empty">Download the Sound ID model first (Sound tab). The location model comes with it.</div>';return}exploreItems=g}
       else{hint.textContent=`Birds recorded within ${RADIUS} km in the last 30 days (iNaturalist research-grade).`;exploreItems=await getInatLocal(30);if(!exploreItems.length){box.innerHTML='<div class="empty">No verified records in the last 30 days here yet. Your sightings could be the first.</div>';return}}}
     renderExplore()}catch(e){box.innerHTML=`<div class="empty">Could not load (${esc(e.message)}). Offline? The Guide list works offline.</div>`}}
-function renderExplore(){if(exploreSrc==='world')return renderWorld();const box=$('#exploreList');
-  const groups=new Map();exploreItems.forEach(i=>{const [gi,gn]=groupOf(i.sci);if(!groups.has(gn))groups.set(gn,{gi,items:[]});groups.get(gn).items.push(i)});
-  const sorted=[...groups.entries()].sort((a,b)=>a[1].gi-b[1].gi||a[0].localeCompare(b[0]));
-  box.innerHTML=(sorted.length?`<div class="jump hscroll">${sorted.map(([n],i)=>`<button class="chip" data-jump="g${i}">${esc(n)}</button>`).join('')}</div>`+sorted.map(([n,g],i)=>`<section class="grp" id="g${i}"><h3>${esc(n)} <span class="cnt">${g.items.length}</span></h3><div class="list">${g.items.map(i=>`<button class="brow" data-sci="${esc(i.sci)}"><img ${i.img?`src="${esc(i.img)}"`:`data-photo="${esc(i.sci)}"`} loading="lazy" alt=""><div class="t"><b>${esc(i.es)}</b><small><i>${esc(i.sci)}</i>${i.sub?' · '+esc(i.sub):''}</small>${GUIDE[i.sci]&&exploreSrc!=='guide'?'<small><span class="dot"></span>guide notes</small>':''}</div><span class="chev">›</span></button>`).join('')}</div></section>`).join(''):'<div class="empty">No birds match this filter.</div>')
-   +`<button class="cell browse" data-nav="root"><span class="grow"><b>Browse all birds of the world</b><br><span class="small muted">${WORLD.ready?WORLD.s.length.toLocaleString():'11,004'} species by order and family</span></span><svg class="chev" width="8" height="14" viewBox="0 0 8 14"><path d="M1 1l6 6-6 6" stroke="currentColor" stroke-width="2" fill="none" stroke-linecap="round"/></svg></button>`;
+const ABL={common:'Common',uncommon:'Uncommon',few:'Few records'};
+function birdRow(i,mine,rank){return `<button class="brow" data-sci="${esc(i.sci)}">${rank?`<span class="rank" translate="no">${rank}</span>`:''}<img ${i.img?`src="${esc(i.img)}"`:`data-photo="${esc(i.sci)}"`} loading="lazy" alt=""><div class="t"><b>${esc(i.es)}${mine.has(i.sci)?'<span class="mine" title="In your collection">✓</span>':''}</b><small><i>${esc(i.sci)}</i>${i.ab&&i.n?` · <span>${ABL[i.ab]}</span>`:''}${i.sub?` · <span>${esc(i.sub)}</span>`:''}</small>${GUIDE[i.sci]&&exploreSrc!=='guide'?'<small><span class="dot"></span>guide notes</small>':''}</div><span class="chev">›</span></button>`}
+function renderExplore(){if(exploreSrc==='world')return renderWorld();const box=$('#exploreList'),mine=mySpecies();
+  $('#exSort').hidden=false;$('#exSort').textContent=exSort==='seen'?'↓ Most seen':'↓ By group';
+  let body;
+  if(!exploreItems.length)body='<div class="empty">No birds match this filter.</div>';
+  else if(exSort==='seen'){const L=[...exploreItems].sort((p,q)=>(q.n||0)-(p.n||0));body=`<div class="list">${L.map((i,k)=>birdRow(i,mine,k+1)).join('')}</div>`}
+  else{const groups=new Map();exploreItems.forEach(i=>{const [gi,gn]=groupOf(i.sci);if(!groups.has(gn))groups.set(gn,{gi,items:[]});groups.get(gn).items.push(i)});
+    const sorted=[...groups.entries()].sort((a,b)=>a[1].gi-b[1].gi||a[0].localeCompare(b[0]));
+    body=`<div class="jump hscroll">${sorted.map(([n],i)=>`<button class="chip" data-jump="g${i}">${esc(n)}</button>`).join('')}</div>`+sorted.map(([n,g],i)=>`<section class="grp" id="g${i}"><h3>${esc(n)} <span class="cnt">${g.items.length}</span></h3><div class="list">${g.items.map(x=>birdRow(x,mine,0)).join('')}</div></section>`).join('')}
+  box.innerHTML=body+`<button class="cell browse" data-nav="root"><span class="grow"><b>Browse all birds of the world</b><br><span class="small muted">${WORLD.ready?WORLD.s.length.toLocaleString():'11,004'} species by order and family</span></span><svg class="chev" width="8" height="14" viewBox="0 0 8 14"><path d="M1 1l6 6-6 6" stroke="currentColor" stroke-width="2" fill="none" stroke-linecap="round"/></svg></button>`;
   hydratePhotos(box)}
 $('#exploreList').addEventListener('click',e=>{const j=e.target.closest('[data-jump]');if(j){const t=document.getElementById(j.dataset.jump);if(t)window.scrollTo({top:t.getBoundingClientRect().top+scrollY-70,behavior:'smooth'});return}
   const n=e.target.closest('[data-nav]');if(n){if(n.dataset.nav==='back'){exploreSrc=LS.get('exBack','guide');return loadExplore()}if(exploreSrc!=='world'){LS.set('exBack',exploreSrc);exploreSrc='world'}return worldNav(n.dataset.nav)}
@@ -365,10 +378,22 @@ const DB={p:null,
   put(s,v){return this.tx(s,'readwrite',st=>st.put(v))}, del(s,id){return this.tx(s,'readwrite',st=>st.delete(id))}};
 const G={sightings:[],ready:false};
 const uid=()=>Date.now().toString(36)+Math.random().toString(36).slice(2,8);
+/* Safety copy: every change to the journal is mirrored (without photos) into a separate database.
+   If the journal store ever comes back empty while the mirror has entries (failed upgrade, bug,
+   corrupted store), the entries are put back automatically. Deleting in the app updates the mirror. */
+const SAFE={p:null,open(){return this.p||(this.p=new Promise((res,rej)=>{const r=indexedDB.open('aves-safety',1);r.onupgradeneeded=()=>r.result.createObjectStore('snap',{keyPath:'id'});r.onsuccess=()=>res(r.result);r.onerror=()=>rej(r.error)}))},
+  async get(){const d=await this.open();return new Promise(res=>{const q=d.transaction('snap').objectStore('snap').get('journal');q.onsuccess=()=>res(q.result||null);q.onerror=()=>res(null)})},
+  async put(v){const d=await this.open();return new Promise(res=>{const t=d.transaction('snap','readwrite');t.objectStore('snap').put(v);t.oncomplete=res;t.onerror=res})}};
+let safeT=null,deletedNow=false;function mirror(){clearTimeout(safeT);safeT=setTimeout(()=>{if(G.ready&&(G.sightings.length||deletedNow))SAFE.put({id:'journal',t:Date.now(),n:G.sightings.length,sightings:G.sightings}).catch(()=>{})},1500)}
+{const _put=DB.put.bind(DB),_del=DB.del.bind(DB);DB.put=(s,v)=>{const r=_put(s,v);if(s==='sightings')r.then(mirror,()=>{});return r};DB.del=(s,id)=>{const r=_del(s,id);if(s==='sightings')r.then(mirror,()=>{});return r}}
+async function protectStorage(){try{if(navigator.storage&&navigator.storage.persist&&!(await navigator.storage.persisted()))await navigator.storage.persist()}catch(e){}}
 async function loadGame(){try{G.sightings=await DB.all('sightings')}catch(e){G.sightings=[]}
+  try{const snap=await SAFE.get();if(snap&&snap.sightings&&snap.sightings.length){const have=new Set([...G.sightings.map(s=>s.id),...LS.get('deletedIds',[])]);let n=0;
+    for(const s of snap.sightings)if(!have.has(s.id)){try{await DB.put('sightings',s);G.sightings.push(s);n++}catch(e){}}if(n)setTimeout(()=>toast(`Recovered ${n} entries from the safety copy`),1200)}}catch(e){}
+  if(G.sightings.length)protectStorage();
   // migrate the old simple life list once
   const old=LS.get('life',null);if(old&&!LS.get('migrated',false)){for(const e of Object.values(old)){const s={id:uid(),sci:e.sci,es:e.es||e.sci,ts:e.first||new Date().toISOString(),count:1,note:'',via:(e.via||[])[0]||'manual',lat:e.loc?.lat,lon:e.loc?.lon};G.sightings.push(s);await DB.put('sightings',s).catch(()=>{})}LS.set('migrated',true)}
-  G.ready=true;renderGameBits()}
+  G.ready=true;mirror();renderGameBits()}
 /* life(): aggregate per species, used by the species sheet */
 function life(){const L={};for(const s of G.sightings){const e=L[s.sci]||(L[s.sci]={sci:s.sci,es:s.es,n:0,birds:0,first:s.ts,last:s.ts,via:[]});e.n++;e.birds+=s.count||1;if(s.ts<e.first)e.first=s.ts;if(s.ts>e.last)e.last=s.ts;if(s.via&&!e.via.includes(s.via))e.via.push(s.via)}return L}
 
@@ -495,23 +520,26 @@ async function openSighting(id){const s=G.sightings.find(x=>x.id===id);if(!s)ret
   if(s.photo){const p=await DB.get('photos',s.photo).catch(()=>null);if(p){$('#sImg').src=URL.createObjectURL(p.blob);$('#sImg').hidden=false}}
   $('#sSp').onclick=()=>openSpecies(s.sci);
   $('#sDel').onclick=async()=>{if($('#sDel').dataset.armed!=='1'){$('#sDel').dataset.armed='1';$('#sDel').textContent='Tap again to delete';return}
-    await DB.del('sightings',s.id);if(s.photo)await DB.del('photos',s.photo).catch(()=>{});G.sightings=G.sightings.filter(x=>x.id!==s.id);history.back();renderLife();toast('Sighting deleted')}}
+    LS.set('deletedIds',[...LS.get('deletedIds',[]),s.id].slice(-5000));deletedNow=true;await DB.del('sightings',s.id);if(s.photo)await DB.del('photos',s.photo).catch(()=>{});G.sightings=G.sightings.filter(x=>x.id!==s.id);history.back();renderLife();toast('Sighting deleted')}}
 function editProfile(){const p=LS.get('profile',{name:''});openSheet(`<div class="bar"><button class="btn sm" data-close>Cancel</button><button class="btn sm primary" id="pSave">Save</button></div><div class="title">Profile</div>
   <h3>Your name</h3><input type="text" id="pName" value="${esc(p.name||'')}" placeholder="Name shown on your profile" maxlength="40">
   <p class="foot" style="margin-top:10px">Your profile, journal, photos and counts live on this device. Use Backup to keep them safe or move them to a new phone.</p>`);
   $('#pSave').onclick=()=>{LS.set('profile',{...p,name:$('#pName').value.trim()});history.back();renderLife()}}
 
 /* ----- backup & restore (journal + photos + counts + quiz) ----- */
+const BACKUP_EXT=[]; // other modules add {key, get(), put(data)}
 const b64=blob=>new Promise(r=>{const f=new FileReader();f.onload=()=>r(f.result);f.readAsDataURL(blob)});
 $('#backupBtn').onclick=async()=>{toast('Preparing backup…');const photos=await DB.all('photos');
-  const data={app:'aves-de-alem',version:1,exported:new Date().toISOString(),profile:LS.get('profile',{}),quizScore:LS.get('quizScore',{ok:0,n:0}),settings,loc,sightings:G.sightings,photos:await Promise.all(photos.map(async p=>({id:p.id,data:await b64(p.blob)})))};
+  const ext={};for(const x of BACKUP_EXT){try{ext[x.key]=await x.get()}catch(e){}}
+  const data={app:'aves-de-alem',version:1,ext,exported:new Date().toISOString(),profile:LS.get('profile',{}),quizScore:LS.get('quizScore',{ok:0,n:0}),settings,loc,sightings:G.sightings,photos:await Promise.all(photos.map(async p=>({id:p.id,data:await b64(p.blob)})))};
   const file=new File([JSON.stringify(data)],`aves-backup-${dayKey(Date.now())}.json`,{type:'application/json'});
-  try{if(navigator.canShare&&navigator.canShare({files:[file]})){await navigator.share({files:[file],title:'Aves de Alem backup'});return}}catch(e){if(e.name==='AbortError')return}
-  const a=document.createElement('a');a.href=URL.createObjectURL(file);a.download=file.name;a.click();LS.set('lastBackup',Date.now())};
+  try{if(navigator.canShare&&navigator.canShare({files:[file]})){await navigator.share({files:[file],title:'Aves de Alem backup'});LS.set('lastBackup',Date.now());LS.set('lastBackupN',G.sightings.length);renderGameBits();return}}catch(e){if(e.name==='AbortError')return}
+  const a=document.createElement('a');a.href=URL.createObjectURL(file);a.download=file.name;a.click();LS.set('lastBackup',Date.now());LS.set('lastBackupN',G.sightings.length);renderGameBits()};
 $('#restoreFile').onchange=async e=>{const f=e.target.files[0];e.target.value='';if(!f)return;
   try{const d=JSON.parse(await f.text());if(d.app!=='aves-de-alem')throw new Error('not an Aves de Alem backup');
     let n=0;for(const p of d.photos||[]){const blob=await (await fetch(p.data)).blob();await DB.put('photos',{id:p.id,blob})}
     for(const s of d.sightings||[]){if(!G.sightings.some(x=>x.id===s.id)){await DB.put('sightings',s);G.sightings.push(s);n++}}
+    for(const x of BACKUP_EXT){if(d.ext&&d.ext[x.key])try{await x.put(d.ext[x.key])}catch(e){}}
     if(d.profile&&!LS.get('profile',{}).name)LS.set('profile',d.profile);
     const q=LS.get('quizScore',{ok:0,n:0});if((d.quizScore?.ok||0)>q.ok)LS.set('quizScore',d.quizScore);
     renderLife();toast(`Restored ${n} sightings`)}catch(err){toast('Restore failed: '+err.message)}};
