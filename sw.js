@@ -1,13 +1,17 @@
-/* Aves de Alem service worker: offline shell, offline BirdNET model, cached iNaturalist data. */
-const V = 'v5';
-const SHELL = 'shell-' + V, MODEL = 'model-v24', DATA = 'inat-' + V, IMG = 'img-' + V;
-const SHELL_FILES = ['./index.html', './app.js', './i18n.js', './guide.js', './worker.js', './manifest.webmanifest', './icon.svg', './icon-192.png', './icon-512.png', './icon-180.png'];
+/* Aves de Alem service worker.
+   shell: network-first (updates arrive, works offline) · data/: cache-first, versioned
+   BirdNET model, libraries, fonts: cache-first forever · iNaturalist + Wikipedia API: stale-while-revalidate
+   photos and map tiles: cache-first with size limits */
+const V = 'v6';
+const SHELL = 'shell-' + V, MODEL = 'model-v24', DATA = 'data-w1', API = 'api-v2', IMG = 'img-v2', TILE = 'tile-v1';
+const SHELL_FILES = ['./index.html', './i18n.js', './guide.js', './world.js', './app.js', './worker.js', './manifest.webmanifest', './icon.svg', './icon-192.png', './icon-512.png', './icon-180.png'];
 
 self.addEventListener('install', e => {
   e.waitUntil(caches.open(SHELL).then(c => c.addAll(SHELL_FILES)).then(() => self.skipWaiting()));
 });
 self.addEventListener('activate', e => {
-  e.waitUntil(caches.keys().then(keys => Promise.all(keys.filter(k => ![SHELL, MODEL, DATA, IMG].includes(k)).map(k => caches.delete(k)))).then(() => self.clients.claim()));
+  const keep = [SHELL, MODEL, DATA, API, IMG, TILE];
+  e.waitUntil(caches.keys().then(keys => Promise.all(keys.filter(k => !keep.includes(k)).map(k => caches.delete(k)))).then(() => self.clients.claim()));
 });
 
 async function cacheFirst(req, name) {
@@ -30,6 +34,13 @@ async function networkFirst(req, name) {
     throw e;
   }
 }
+async function staleWhileRevalidate(req, name, e) {
+  const c = await caches.open(name);
+  const hit = await c.match(req);
+  const net = fetch(req).then(res => { if (res.ok) c.put(req, res.clone()); return res; });
+  if (hit) { e.waitUntil(net.catch(() => {})); return hit; }
+  return net;
+}
 async function trim(name, max) {
   const c = await caches.open(name);
   const keys = await c.keys();
@@ -40,23 +51,28 @@ self.addEventListener('fetch', e => {
   const req = e.request;
   if (req.method !== 'GET') return;
   const u = new URL(req.url);
-  // BirdNET model, labels, tfjs, fonts: immutable, cache forever
-  if (u.host === 'raw.githubusercontent.com' || u.host === 'cdn.jsdelivr.net' || u.host === 'fonts.gstatic.com' || u.host === 'fonts.googleapis.com') {
+  if (u.host === 'raw.githubusercontent.com' || u.host === 'cdn.jsdelivr.net' || u.host === 'cdnjs.cloudflare.com' || u.host.startsWith('fonts.g')) {
     e.respondWith(cacheFirst(req, MODEL));
     return;
   }
+  if (u.host === 'api.inaturalist.org' && /\.png$/.test(u.pathname) || u.host.endsWith('basemaps.cartocdn.com')) {
+    e.respondWith(cacheFirst(req, TILE));
+    e.waitUntil(trim(TILE, 800));
+    return;
+  }
   if (u.host === 'api.inaturalist.org' || u.host.endsWith('wikipedia.org')) {
-    e.respondWith(networkFirst(req, DATA));
-    e.waitUntil(trim(DATA, 400));
+    e.respondWith(staleWhileRevalidate(req, API, e));
+    e.waitUntil(trim(API, 600));
     return;
   }
   if (req.destination === 'image' && /inaturalist|amazonaws/.test(u.host)) {
     e.respondWith(cacheFirst(req, IMG));
-    e.waitUntil(trim(IMG, 600));
+    e.waitUntil(trim(IMG, 2500));
     return;
   }
-  if (u.origin === location.origin && u.pathname.startsWith(new URL('./', location.href).pathname)) {
-    // app shell: network first so updates arrive, cache when offline
+  const base = new URL('./', location.href).pathname;
+  if (u.origin === location.origin && u.pathname.startsWith(base)) {
+    if (u.pathname.startsWith(base + 'data/')) { e.respondWith(cacheFirst(req, DATA)); return; }
     e.respondWith(networkFirst(req, SHELL).catch(() => caches.match('./index.html')));
   }
 });

@@ -98,7 +98,22 @@ const ES={
 // location sheet
 'Location':'Ubicación','Used for the BirdNET location filter and iNaturalist records nearby. Stays on this device.':'Se usa para el filtro de ubicación de BirdNET y los registros cercanos de iNaturalist. Queda en este dispositivo.',
 'Use my current location':'Usar mi ubicación actual','Leandro N. Alem (default)':'Leandro N. Alem (predeterminada)','Coordinates':'Coordenadas','Latitude':'Latitud','Longitude':'Longitud','Set coordinates':'Fijar coordenadas','Locating…':'Buscando ubicación…','Location updated':'Ubicación actualizada',
-'Spanish':'Español','English':'Inglés'
+'Spanish':'Español','English':'Inglés','World data:':'Datos mundiales:',
+'taxonomy of 11,004 living species from the eBird/Clements Checklist (via the rOpenSci auk package); species IDs and English/Spanish names from the BirdNET taxonomy table; body mass, diet and foraging from EltonTraits 1.0 (Wilman et al. 2014); maps © OpenStreetMap, © CARTO, Leaflet; records, ranges, seasonality and confusion species from the iNaturalist API.':'taxonomía de 11.004 especies vivientes de la lista eBird/Clements (vía el paquete auk de rOpenSci); identificadores y nombres en inglés y español de la tabla taxonómica de BirdNET; peso, dieta y estratos de alimentación de EltonTraits 1.0 (Wilman et al. 2014); mapas © OpenStreetMap, © CARTO, Leaflet; registros, distribución, estacionalidad y especies similares de la API de iNaturalist.',
+'Nearby':'Cerca','World':'Mundo','All birds':'Todas las aves','Search any bird, any name':'Buscá cualquier ave, cualquier nombre','in your collection':'en tu colección',
+'Set to Leandro N. Alem. Birding somewhere else?':'Configurado en Leandro N. Alem. ¿Estás observando en otro lugar?','Set my location':'Usar mi ubicación',
+'Ecology':'Ecología','Body mass':'Peso','Activity':'Actividad','Mostly nocturnal':'Principalmente nocturna','Diurnal':'Diurna','Diet':'Dieta','Where it forages':'Dónde se alimenta',
+'Invertebrates':'Invertebrados','Birds & mammals':'Aves y mamíferos','Reptiles & amphibians':'Reptiles y anfibios','Fish':'Peces','Other vertebrates':'Otros vertebrados','Carrion':'Carroña','Fruit':'Frutos','Nectar':'Néctar','Seeds':'Semillas','Other plant matter':'Otras partes de plantas',
+'Below water surface':'Bajo el agua','Water surface':'Superficie del agua','Ground':'Suelo','Understory':'Sotobosque','Mid to high levels':'Estrato medio a alto','Canopy':'Dosel','Aerial':'Aire',
+'Source: EltonTraits 1.0 (Wilman et al. 2014, Ecology 95:2027). Mass mostly from Dunning (2008), CRC Handbook of Avian Body Masses.':'Fuente: EltonTraits 1.0 (Wilman et al. 2014, Ecology 95:2027). Pesos mayormente de Dunning (2008), CRC Handbook of Avian Body Masses.',
+'When to see it':'Cuándo verla','Where it lives':'Dónde vive','iNaturalist records · shaded: known range':'Registros de iNaturalist · sombreado: distribución conocida','Map not available offline.':'Mapa no disponible sin conexión.',
+'Often confused with':'Se confunde con','How often iNaturalist identifiers confused these species with this one.':'Cuántas veces los identificadores de iNaturalist confundieron estas especies con esta.',
+'Genus':'Género','eBird code':'Código eBird','IUCN Red List':'Lista Roja UICN','Not Evaluated':'No evaluada','Not threatened (national)':'No amenazada (nacional)',
+'Taxonomy: eBird/Clements Checklist. Status: IUCN Red List and national lists via iNaturalist.':'Taxonomía: lista eBird/Clements. Estado: Lista Roja UICN y listas nacionales vía iNaturalist.',
+'Ornithologist notes':'Notas de ornitólogo','Write notes':'Escribir notas','Writing…':'Escribiendo…',
+'A structured field account: identification by age and sex, voice, confusion species, habitat, behaviour, breeding, movements, conservation.':'Una ficha de campo estructurada: identificación por edad y sexo, voz, especies similares, hábitat, comportamiento, reproducción, movimientos y conservación.',
+'Add a Claude API key in the Photo tab to generate a structured field account for any species.':'Agregá una clave API de Claude en la pestaña Foto para generar una ficha de campo de cualquier especie.',
+'Written by Claude from Wikipedia, EltonTraits and iNaturalist data. Check important details against Birds of the World.':'Escrita por Claude a partir de Wikipedia, EltonTraits e iNaturalist. Verificá los detalles importantes en Birds of the World.'
 };
 const LV={Egg:'Huevo',Chick:'Pichón',Fledgling:'Volantón',Wanderer:'Caminante',Spotter:'Avistador',Birder:'Pajarero','Field naturalist':'Naturalista','Forest listener':'Oído del monte','Guardian of the selva':'Guardián de la selva','Master birder':'Maestro pajarero',Ornithologist:'Ornitólogo','Legend of Misiones':'Leyenda misionera'};
 const PAT=[
@@ -126,7 +141,14 @@ const PAT=[
 [/^Quiz needs a connection to iNaturalist \((.+)\)\.$/,'El quiz necesita conexión con iNaturalist ($1).'],
 [/^Could not load \((.+)\)\. Offline\? The Guide list works offline\.$/,'No se pudo cargar ($1). ¿Sin conexión? La lista de la guía funciona sin conexión.'],
 [/^Offline or not found \((.+)\)\. Links below open the species online\.$/,'Sin conexión o no encontrada ($1). Los enlaces de abajo abren la especie en línea.'],
-[/^First (.+) · (\d+)× · (.+)$/,'Primera vez $1 · $2× · $3'],[/^Week (\d+)$/,'Semana $1']
+[/^First (.+) · (\d+)× · (.+)$/,'Primera vez $1 · $2× · $3'],[/^(.+) \(([A-Z]{2})\)$/,(m,a,b)=>`${ES[a]||a} (${b})`],
+[/^(\d+) matches worldwide$/,'$1 resultados en todo el mundo'],
+[/^([\d.,]+) bird species in (\d+) families\. Search any name, or browse by order\.$/,'$1 especies de aves en $2 familias. Buscá cualquier nombre o recorré por orden.'],
+[/^(.+) · (\d+) famil(?:y|ies) · ([\d.,]+) species$/,(m,a,b,c)=>`${a} · ${b} ${b==='1'?'familia':'familias'} · ${c} especies`],[/^(.+) · (\d+) famil(?:y|ies)$/,(m,a,b)=>`${a} · ${b} ${b==='1'?'familia':'familias'}`],[/^(.+) · ([\d.,]+) species$/,'$1 · $2 especies'],
+[/^(\d+)× mixed up$/,'confundida $1×'],[/^Notes failed: (.+)$/,'Fallaron las notas: $1'],
+[/^([\d.,]+) iNaturalist records within 200 km of you, by month$/,'$1 registros de iNaturalist a menos de 200 km, por mes'],
+[/^([\d.,]+) iNaturalist records worldwide, by month \(few records near you\)$/,'$1 registros de iNaturalist en el mundo, por mes (pocos registros cerca tuyo)'],
+[/^Week (\d+)$/,'Semana $1']
 ];
 function trS(en){if(I18N.lang!=='es')return en;const k=en.trim();if(!k||!/[A-Za-z]/.test(k))return en;let out=ES[k];
   if(out===undefined){for(const [re,rep] of PAT){if(re.test(k)){out=k.replace(re,rep);break}}}

@@ -167,6 +167,26 @@ details summary{list-style:none;cursor:pointer}
 details summary::-webkit-details-marker{display:none}
 details>summary .chev{transition:transform .2s}
 details[open]>summary .chev{transform:rotate(90deg)}
+
+.tile{content-visibility:auto;contain-intrinsic-size:auto 230px}
+.tile.mini{flex:0 0 136px;content-visibility:visible}
+.tile.mini img{aspect-ratio:1}
+.hscroll{display:flex;gap:10px;overflow-x:auto;padding:2px 2px 6px;scrollbar-width:none}
+.hscroll::-webkit-scrollbar{display:none}
+.hb{display:grid;grid-template-columns:minmax(110px,40%) 1fr 42px;align-items:center;gap:8px;font-size:14px;margin:4px 0}
+.hb i{display:block;height:8px;border-radius:4px;background:linear-gradient(90deg,var(--tint) var(--w),var(--fill) var(--w))}
+.hb b{text-align:right;font-variant-numeric:tabular-nums;font-weight:600}
+.months{display:grid;grid-template-columns:repeat(12,1fr);gap:4px;height:110px;align-items:end}
+.mo{display:flex;flex-direction:column;justify-content:flex-end;align-items:center;height:100%;gap:4px}
+.mo i{display:block;width:100%;border-radius:4px 4px 0 0;background:var(--fill);min-height:2px}
+.mo.now i{background:var(--tint)}
+.mo span{font-size:11px;color:var(--ink2)}
+.mo.now span{color:var(--tint);font-weight:700}
+.expert h4{font:600 16px var(--font-d);margin:14px 0 4px}
+.expert h4:first-child{margin-top:0}
+.expert p,.expert ul{margin:0 0 8px}
+.expert ul{padding-left:20px}
+.leaflet-container{font:12px var(--font)}
 </style>
 </head>
 <body>
@@ -179,6 +199,7 @@ details[open]>summary .chev{transform:rotate(90deg)}
 
   <!-- SOUND -->
   <section id="t-sound" class="stack">
+    <div class="card row" id="locHint" hidden style="justify-content:space-between;gap:10px"><span class="small grow">Set to Leandro N. Alem. Birding somewhere else?</span><button class="btn sm primary" id="locHintBtn">Set my location</button></div>
     <div class="card stack" id="modelCard" style="gap:10px">
       <div class="row" style="justify-content:space-between"><b>Sound ID</b><span class="pill" id="modelState">not installed</span></div>
       <p class="small muted" id="modelHint" style="margin:0">BirdNET by Cornell Lab and TU Chemnitz recognises about 6,500 species by sound. It runs on your phone and audio never leaves the device. One-time download, about 64 MB, then it works offline.</p>
@@ -229,11 +250,12 @@ details[open]>summary .chev{transform:rotate(90deg)}
   <!-- EXPLORE -->
   <section id="t-explore" class="stack" hidden>
     <div class="seg" role="group" aria-label="Source">
-      <button aria-pressed="true" data-src="inat">Recorded here</button>
+      <button aria-pressed="true" data-src="inat">Nearby</button>
       <button aria-pressed="false" data-src="geo">This week</button>
+      <button aria-pressed="false" data-src="world">World</button>
       <button aria-pressed="false" data-src="guide">Guide</button>
     </div>
-    <input type="search" id="exploreQ" placeholder="Search" aria-label="Search birds">
+    <input type="search" id="exploreQ" placeholder="Search any bird, any name" aria-label="Search birds">
     <p class="small muted" id="exploreHint" style="margin:0 4px"></p>
     <div id="exploreList" class="grid2"></div>
     <button class="btn block" id="exploreMore" hidden>Show more</button>
@@ -265,6 +287,7 @@ details[open]>summary .chev{transform:rotate(90deg)}
         <p style="margin:0"><b>Sound ID:</b> BirdNET V2.4 and its location model by the K. Lisa Yang Center for Conservation Bioacoustics (Cornell Lab of Ornithology) and Chemnitz University of Technology. Kahl, S., Wood, C. M., Eibl, M., &amp; Klinck, H. (2021). BirdNET: A deep learning solution for avian diversity monitoring. <i>Ecological Informatics</i>, 61, 101236. Model files served from the BirdNET-Team website repository (models CC BY-SA 4.0; worker code adapted from it, MIT). Personal, non-commercial use.</p>
         <p style="margin:0"><b>Photos, sounds, local records:</b> iNaturalist community; each item shows its author and licence. Species summaries from Wikipedia (CC BY-SA) via iNaturalist.</p>
         <p style="margin:0"><b>Photo ID:</b> Claude by Anthropic, with your own key. <b>Guide notes</b> for 55 species compiled from standard references (Narosky &amp; Yzurieta; Birds of the World); studies cited in place.</p>
+        <p style="margin:0"><b>World data:</b> taxonomy of 11,004 living species from the eBird/Clements Checklist (via the rOpenSci auk package); species IDs and English/Spanish names from the BirdNET taxonomy table; body mass, diet and foraging from EltonTraits 1.0 (Wilman et al. 2014); maps © OpenStreetMap, © CARTO, Leaflet; records, ranges, seasonality and confusion species from the iNaturalist API.</p>
         <p style="margin:0"><b>Privacy:</b> no accounts, no analytics. Audio is analysed on the device. Location stays on the device and is only used for the location model and the iNaturalist query. Photos go to Anthropic only when you press Identify with your key.</p>
       </div>
     </details>
@@ -284,6 +307,7 @@ details[open]>summary .chev{transform:rotate(90deg)}
 
 <script src="./i18n.js" defer></script>
 <script src="./guide.js" defer></script>
+<script src="./world.js" defer></script>
 <script src="./app.js" defer></script>
 
 </body>
