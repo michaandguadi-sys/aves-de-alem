@@ -171,9 +171,10 @@ details[open]>summary .chev{transform:rotate(90deg)}
 </head>
 <body>
 <div class="app">
-  <header class="top">
-    <div><div class="eyebrow">Aves de Alem</div><h1 id="pageTitle">Identify</h1></div>
-    <button class="loc" id="locBtn" aria-label="Change location"></button>
+  <header class="top" style="display:block">
+    <div class="row" style="justify-content:space-between;flex-wrap:nowrap;gap:8px"><div class="eyebrow">Aves de Alem</div>
+      <div class="row" style="gap:6px;flex-wrap:nowrap;min-width:0"><button class="loc" id="langBtn" aria-label="Language" translate="no" style="margin:0;flex:none"></button><button class="loc" id="locBtn" aria-label="Change location" style="margin:0;max-width:44vw"></button></div></div>
+    <h1 id="pageTitle" style="margin-top:4px">Identify</h1>
   </header>
 
   <!-- SOUND -->
@@ -281,6 +282,7 @@ details[open]>summary .chev{transform:rotate(90deg)}
 <div class="backdrop" id="backdrop"></div>
 <div class="sheet" id="sheet" role="dialog" aria-modal="true" aria-label="Details"><div class="grabber"></div><div class="in" id="sheetIn"></div></div>
 
+<script src="./i18n.js" defer></script>
 <script src="./guide.js" defer></script>
 <script src="./app.js" defer></script>
 

@@ -1,7 +1,7 @@
 /* Aves de Alem service worker: offline shell, offline BirdNET model, cached iNaturalist data. */
-const V = 'v4';
+const V = 'v5';
 const SHELL = 'shell-' + V, MODEL = 'model-v24', DATA = 'inat-' + V, IMG = 'img-' + V;
-const SHELL_FILES = ['./index.html', './app.js', './guide.js', './worker.js', './manifest.webmanifest', './icon.svg', './icon-192.png', './icon-512.png', './icon-180.png'];
+const SHELL_FILES = ['./index.html', './app.js', './i18n.js', './guide.js', './worker.js', './manifest.webmanifest', './icon.svg', './icon-192.png', './icon-512.png', './icon-180.png'];
 
 self.addEventListener('install', e => {
   e.waitUntil(caches.open(SHELL).then(c => c.addAll(SHELL_FILES)).then(() => self.skipWaiting()));
