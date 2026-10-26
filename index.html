@@ -1,0 +1,283 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+<title>Aves de Alem</title>
+<meta name="description" content="Bird ID for Misiones: BirdNET sound ID, photo ID, local species, life list.">
+<meta name="theme-color" content="#F2F2F7" media="(prefers-color-scheme: light)">
+<meta name="theme-color" content="#000000" media="(prefers-color-scheme: dark)">
+<link rel="manifest" href="./manifest.webmanifest">
+<link rel="icon" href="./icon.svg" type="image/svg+xml">
+<link rel="apple-touch-icon" href="./icon-180.png">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<style>
+/* Native-feel design: iOS HIG structure (large titles, inset grouped lists, blurred tab bar, sheets, switches)
+   + Material clarity (clear states, 48px touch targets, press feedback). One tint: tierra colorada. */
+:root{
+  --bg:#F2F2F7; --surface:#FFFFFF; --surface2:#E9E9EE; --fill:rgba(118,118,128,.12);
+  --ink:#000000; --ink2:rgba(60,60,67,.62); --ink3:rgba(60,60,67,.3); --sep:rgba(60,60,67,.18);
+  --tint:#D9572B; --tint-ink:#FFFFFF; --tint-soft:rgba(217,87,43,.12);
+  --green:#2E9D49; --red:#E5383B; --bar:rgba(249,249,249,.82);
+  --font:-apple-system,BlinkMacSystemFont,"SF Pro Text","Segoe UI",Roboto,"Helvetica Neue",Arial,sans-serif;
+  --font-d:-apple-system,BlinkMacSystemFont,"SF Pro Display","Segoe UI",Roboto,"Helvetica Neue",Arial,sans-serif;
+  --mono:ui-monospace,"SF Mono",Menlo,Consolas,monospace;
+  --r:12px; --shadow:0 1px 2px rgba(0,0,0,.04),0 4px 16px rgba(0,0,0,.06);
+  color-scheme:light;
+}
+@media (prefers-color-scheme: dark){:root{
+  --bg:#000000; --surface:#1C1C1E; --surface2:#2C2C2E; --fill:rgba(118,118,128,.24);
+  --ink:#FFFFFF; --ink2:rgba(235,235,245,.62); --ink3:rgba(235,235,245,.3); --sep:rgba(84,84,88,.6);
+  --tint:#FF7A45; --tint-ink:#1A0A03; --tint-soft:rgba(255,122,69,.16);
+  --green:#32D158; --red:#FF453A; --bar:rgba(22,22,24,.78); --shadow:none; color-scheme:dark}}
+*{box-sizing:border-box}
+[hidden]{display:none!important}
+html,body{height:100%}
+body{margin:0;background:var(--bg);color:var(--ink);font:17px/1.4 var(--font);-webkit-font-smoothing:antialiased;-webkit-tap-highlight-color:transparent;-webkit-text-size-adjust:100%}
+button{font:inherit;color:inherit}
+a{color:var(--tint);text-decoration:none}
+.app{max-width:680px;margin:0 auto;min-height:100%;padding:calc(env(safe-area-inset-top,0px) + 8px) max(16px,env(safe-area-inset-right,0px)) calc(96px + env(safe-area-inset-bottom,0px)) max(16px,env(safe-area-inset-left,0px))}
+/* large title header */
+header.top{display:flex;justify-content:space-between;align-items:flex-end;gap:12px;padding:6px 0 10px}
+.top h1{font:700 34px/1.1 var(--font-d);letter-spacing:.01em;margin:0}
+.top .eyebrow{font:600 13px var(--font);color:var(--ink2);text-transform:uppercase;letter-spacing:.04em}
+.loc{display:inline-flex;align-items:center;gap:5px;font:600 13px var(--font);color:var(--tint);background:var(--tint-soft);border:0;border-radius:999px;padding:7px 12px;cursor:pointer;max-width:52vw;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;margin-bottom:4px}
+.loc svg{width:14px;height:14px;flex:none}
+h2{font:700 22px/1.2 var(--font-d);margin:6px 0 8px}
+h3{font:600 13px/1.3 var(--font);text-transform:uppercase;letter-spacing:.03em;color:var(--ink2);margin:22px 16px 6px}
+.muted{color:var(--ink2)} .small{font-size:13px;line-height:1.35} .mono{font-family:var(--mono)}
+.sci{font-style:italic}
+.stack{display:grid;gap:12px}
+.row{display:flex;gap:8px;flex-wrap:wrap;align-items:center}
+.card{background:var(--surface);border-radius:var(--r);padding:16px;min-width:0;box-shadow:var(--shadow)}
+.foot{font-size:13px;color:var(--ink2);padding:0 16px;margin:6px 0 0}
+/* inset grouped list */
+.group{background:var(--surface);border-radius:var(--r);overflow:hidden;box-shadow:var(--shadow)}
+.group>*+*{border-top:.5px solid var(--sep)}
+.cell{display:flex;align-items:center;gap:12px;min-height:48px;padding:10px 16px;width:100%;background:none;border:0;text-align:left;cursor:pointer;color:var(--ink)}
+.cell:active{background:var(--fill)}
+.cell .grow{flex:1;min-width:0}
+.cell .chev{color:var(--ink3);flex:none}
+/* buttons */
+.btn{display:inline-flex;align-items:center;justify-content:center;gap:8px;min-height:44px;border:0;border-radius:12px;padding:10px 18px;font-weight:600;font-size:17px;cursor:pointer;background:var(--fill);color:var(--tint);text-decoration:none;transition:transform .12s,opacity .12s}
+.btn:active,.cell:active,.tile:active,.det:active{transform:scale(.97)}
+.btn.primary{background:var(--tint);color:var(--tint-ink)}
+.btn.block{width:100%}
+.btn:disabled{opacity:.4;cursor:default;transform:none}
+.btn.sm{min-height:34px;padding:6px 14px;font-size:15px;border-radius:999px}
+button:focus-visible,a:focus-visible,input:focus-visible,select:focus-visible,label:focus-visible{outline:3px solid var(--tint);outline-offset:2px}
+input[type=text],input[type=password],input[type=search],input[type=number],select{width:100%;font:17px var(--font);padding:11px 14px;border:0;border-radius:10px;background:var(--fill);color:var(--ink);-webkit-appearance:none;appearance:none}
+input[type=search]{padding-left:36px;background:var(--fill) url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='18' height='18' fill='none' stroke='%238E8E93' stroke-width='2.2' stroke-linecap='round'%3E%3Ccircle cx='8' cy='8' r='6'/%3E%3Cpath d='m13 13 4 4'/%3E%3C/svg%3E") no-repeat 12px 50%}
+label.lab{font:400 13px var(--font);color:var(--ink2);display:block;margin-bottom:6px}
+/* iOS switch */
+.switch{position:relative;width:51px;height:31px;flex:none}
+.switch input{position:absolute;inset:0;opacity:0;margin:0;cursor:pointer}
+.switch span{position:absolute;inset:0;border-radius:999px;background:var(--fill);transition:background .2s;pointer-events:none}
+.switch span::after{content:"";position:absolute;top:2px;left:2px;width:27px;height:27px;border-radius:50%;background:#fff;box-shadow:0 3px 8px rgba(0,0,0,.15),0 1px 1px rgba(0,0,0,.16);transition:transform .2s}
+.switch input:checked+span{background:var(--green)}
+.switch input:checked+span::after{transform:translateX(20px)}
+input[type=range]{width:100%;accent-color:var(--tint)}
+.progress{height:4px;background:var(--fill);border-radius:2px;overflow:hidden}
+.progress i{display:block;height:100%;width:0;background:var(--tint);transition:width .25s}
+/* tab bar: translucent, blurred */
+nav.tabs{position:fixed;left:0;right:0;bottom:0;z-index:20;background:var(--bar);-webkit-backdrop-filter:saturate(180%) blur(20px);backdrop-filter:saturate(180%) blur(20px);border-top:.5px solid var(--sep);display:flex;justify-content:center;padding:6px max(4px,env(safe-area-inset-right,0px)) calc(4px + env(safe-area-inset-bottom,0px)) max(4px,env(safe-area-inset-left,0px))}
+nav.tabs .in{display:flex;width:100%;max-width:680px}
+nav.tabs button{flex:1;min-height:48px;background:none;border:0;padding:2px;display:flex;flex-direction:column;align-items:center;gap:2px;font:500 10px var(--font);color:#8E8E93;cursor:pointer}
+nav.tabs button svg{width:26px;height:26px}
+nav.tabs button[aria-selected=true]{color:var(--tint)}
+nav.tabs button[aria-selected=true] svg .f{fill:currentColor}
+/* sound */
+.hero{display:grid;justify-items:center;gap:6px;padding:12px 0 4px}
+.listen{position:relative;width:148px;height:148px;border-radius:50%;border:0;background:var(--tint);color:var(--tint-ink);cursor:pointer;display:grid;place-items:center;box-shadow:0 10px 30px rgba(217,87,43,.35);transition:transform .15s}
+.listen:active{transform:scale(.95)}
+.listen svg{width:52px;height:52px}
+.listen .lbl{position:absolute;bottom:22px;font:600 14px var(--font)}
+.listen.on{animation:pulse 1.6s infinite}
+@keyframes pulse{0%{box-shadow:0 0 0 0 rgba(217,87,43,.45)}100%{box-shadow:0 0 0 28px rgba(217,87,43,0)}}
+@media (prefers-reduced-motion:reduce){.listen.on{animation:none}.sheet{transition:none!important}}
+.status{font-size:15px;color:var(--ink2);text-align:center;min-height:21px}
+canvas.spec{width:100%;height:110px;border-radius:var(--r);background:#0B0B0D;display:block}
+/* result rows */
+.det{display:flex;gap:12px;align-items:center;padding:10px 14px;background:var(--surface);border:0;border-radius:var(--r);cursor:pointer;text-align:left;width:100%;box-shadow:var(--shadow);transition:transform .12s,box-shadow .2s;color:var(--ink)}
+.det.now{box-shadow:0 0 0 2px var(--tint),var(--shadow)}
+.det img,.thumb{width:56px;height:56px;border-radius:10px;object-fit:cover;background:var(--surface2);flex:none}
+.det .nm{font:600 17px/1.25 var(--font)}
+.det .sc{font-style:italic;font-size:14px;color:var(--ink2)}
+.det .bar{height:4px;background:var(--fill);border-radius:2px;margin-top:6px;overflow:hidden}
+.det .bar i{display:block;height:100%;background:var(--green);border-radius:2px}
+.det .right{margin-left:auto;text-align:right;font:600 15px var(--font);color:var(--ink);flex:none;display:grid;gap:3px;justify-items:end}
+.det .right small{font-weight:400;font-size:12px;color:var(--ink2)}
+.pill{font:600 11px var(--font);padding:2px 8px;border-radius:999px;background:var(--fill);color:var(--ink2);white-space:nowrap}
+.pill.hot{background:var(--tint);color:var(--tint-ink)}
+.pill.warn{background:rgba(255,159,10,.18);color:#B25E00}
+@media (prefers-color-scheme: dark){.pill.warn{color:#FFB340}}
+/* sheet (modal) */
+.backdrop{position:fixed;inset:0;z-index:29;background:rgba(0,0,0,.35);opacity:0;transition:opacity .25s;pointer-events:none}
+.backdrop.open{opacity:1;pointer-events:auto}
+.sheet{position:fixed;left:0;right:0;bottom:0;top:calc(env(safe-area-inset-top,0px) + 10px);z-index:30;background:var(--bg);border-radius:14px 14px 0 0;overflow-y:auto;overscroll-behavior:contain;transform:translateY(105%);transition:transform .35s cubic-bezier(.32,.72,0,1);padding:0 max(16px,env(safe-area-inset-right,0px)) calc(28px + env(safe-area-inset-bottom,0px)) max(16px,env(safe-area-inset-left,0px));visibility:hidden}
+.sheet.open{transform:none;visibility:visible}
+.sheet .in{max-width:680px;margin:0 auto}
+.sheet .bar{position:sticky;top:0;z-index:2;display:flex;justify-content:space-between;align-items:center;padding:8px 0 8px;background:var(--bg)}
+.grabber{width:36px;height:5px;border-radius:3px;background:var(--ink3);margin:6px auto 0}
+.sheet .title{font:700 28px/1.15 var(--font-d);margin:6px 0 2px}
+.gallery{display:flex;gap:10px;overflow-x:auto;scroll-snap-type:x mandatory;margin:12px -16px;padding:0 16px 4px;scrollbar-width:none}
+.gallery::-webkit-scrollbar{display:none}
+.gallery figure{margin:0;flex:0 0 88%;scroll-snap-align:center}
+.gallery img{width:100%;aspect-ratio:4/3;object-fit:cover;border-radius:var(--r);background:var(--surface2);display:block}
+.gallery figcaption{font-size:11px;color:var(--ink2);margin-top:4px}
+.sound{display:grid;gap:4px;padding:10px 14px}
+audio{width:100%;height:40px}
+dl.kv{display:grid;grid-template-columns:auto 1fr;gap:8px 14px;margin:0}
+dl.kv dt{font:400 15px var(--font);color:var(--ink2)}
+dl.kv dd{margin:0;min-width:0}
+.note{background:var(--tint-soft);padding:12px 14px;border-radius:var(--r)}
+/* explore grid */
+.grid2{display:grid;grid-template-columns:repeat(auto-fill,minmax(150px,1fr));gap:12px}
+.tile{border:0;background:var(--surface);border-radius:var(--r);overflow:hidden;cursor:pointer;text-align:left;padding:0;box-shadow:var(--shadow);transition:transform .12s;color:var(--ink)}
+.tile img{width:100%;aspect-ratio:1;object-fit:cover;display:block;background:var(--surface2)}
+.tile .t{padding:8px 10px 10px}
+.tile .t b{font:600 15px/1.2 var(--font);display:block}
+.tile .t small{font-size:12px;color:var(--ink2)}
+.dot{display:inline-block;width:7px;height:7px;border-radius:50%;background:var(--tint);margin-right:4px;vertical-align:middle}
+/* segmented control */
+.seg{display:flex;background:var(--fill);border-radius:9px;padding:2px;gap:2px}
+.seg button{flex:1;border:0;background:none;padding:7px 8px;border-radius:7px;font:500 14px var(--font);cursor:pointer;color:var(--ink);min-height:32px}
+.seg button[aria-pressed=true]{background:var(--surface);font-weight:600;box-shadow:0 3px 8px rgba(0,0,0,.12),0 3px 1px rgba(0,0,0,.04)}
+@media (prefers-color-scheme: dark){.seg button[aria-pressed=true]{background:#636366}}
+.quizopts{display:grid;gap:8px}
+.quizopts button{min-height:52px;padding:12px 16px;border-radius:var(--r);border:0;background:var(--fill);text-align:left;cursor:pointer;font-weight:600;color:var(--ink)}
+.quizopts button.ok{background:rgba(52,199,89,.22);box-shadow:inset 0 0 0 2px var(--green)}
+.quizopts button.no{background:rgba(255,69,58,.16);box-shadow:inset 0 0 0 2px var(--red)}
+.toast{position:fixed;left:50%;bottom:calc(100px + env(safe-area-inset-bottom,0px));transform:translateX(-50%);background:rgba(30,30,32,.92);color:#fff;padding:12px 18px;border-radius:14px;font:600 15px var(--font);z-index:50;max-width:90vw;-webkit-backdrop-filter:blur(20px);backdrop-filter:blur(20px)}
+.empty{padding:32px 20px;text-align:center;color:var(--ink2);background:var(--surface);border-radius:var(--r)}
+.photo-prev{width:100%;max-height:380px;object-fit:contain;border-radius:var(--r);background:var(--surface2);display:block}
+.drop{display:grid;place-items:center;gap:8px;min-height:180px;border-radius:var(--r);background:var(--fill);color:var(--tint);cursor:pointer;font-weight:600;text-align:center;padding:20px}
+.drop svg{width:44px;height:44px}
+table{border-collapse:collapse;width:100%;font-size:15px}
+th,td{text-align:left;padding:9px 6px;border-bottom:.5px solid var(--sep);vertical-align:top}
+th{font:600 12px var(--font);text-transform:uppercase;letter-spacing:.03em;color:var(--ink2)}
+.tw{overflow-x:auto}
+details summary{list-style:none;cursor:pointer}
+details summary::-webkit-details-marker{display:none}
+details>summary .chev{transition:transform .2s}
+details[open]>summary .chev{transform:rotate(90deg)}
+</style>
+</head>
+<body>
+<div class="app">
+  <header class="top">
+    <div><div class="eyebrow">Aves de Alem</div><h1 id="pageTitle">Identify</h1></div>
+    <button class="loc" id="locBtn" aria-label="Change location"></button>
+  </header>
+
+  <!-- SOUND -->
+  <section id="t-sound" class="stack">
+    <div class="card stack" id="modelCard" style="gap:10px">
+      <div class="row" style="justify-content:space-between"><b>Sound ID</b><span class="pill" id="modelState">not installed</span></div>
+      <p class="small muted" id="modelHint" style="margin:0">BirdNET by Cornell Lab and TU Chemnitz recognises about 6,500 species by sound. It runs on your phone and audio never leaves the device. One-time download, about 64 MB, then it works offline.</p>
+      <div class="progress" id="modelProg" hidden><i></i></div>
+      <button class="btn primary block" id="loadModel">Install Sound ID</button>
+    </div>
+    <div class="hero">
+      <button class="listen" id="listenBtn" aria-pressed="false" aria-label="Start listening"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><rect x="9" y="3" width="6" height="11" rx="3" fill="currentColor"/><path d="M5 11a7 7 0 0 0 14 0M12 18v3"/></svg></button>
+      <div class="status" id="liveStatus" aria-live="polite">Tap to listen. Point the phone at the bird.</div>
+    </div>
+    <canvas class="spec" id="spec" width="720" height="160" aria-label="Live spectrogram"></canvas>
+    <div id="detections" class="stack"></div>
+    <div class="group">
+      <label class="cell" for="audioFile"><svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="var(--tint)" stroke-width="2" stroke-linecap="round"><path d="M9 18V5l12-2v13"/><circle cx="6" cy="18" r="3"/><circle cx="18" cy="16" r="3"/></svg><span class="grow">Analyse a recording</span><svg class="chev" width="8" height="14" viewBox="0 0 8 14"><path d="M1 1l6 6-6 6" stroke="currentColor" stroke-width="2" fill="none" stroke-linecap="round"/></svg></label>
+      <input type="file" id="audioFile" accept="audio/*,video/*" hidden>
+    </div>
+    <h3>Settings</h3>
+    <div class="group">
+      <div class="cell" style="cursor:default"><span class="grow">Only birds expected here<br><span class="small muted">BirdNET location model, this week</span></span><span class="switch"><input type="checkbox" id="geoFilter" role="switch" aria-label="Only birds expected here"><span></span></span></div>
+      <div class="cell" style="display:block;cursor:default"><label class="lab" for="minConf">Minimum confidence · <b id="minConfV"></b></label><input type="range" id="minConf" min="0.1" max="0.7" step="0.05"></div>
+    </div>
+    <p class="foot">Treat single detections under about 50% as “possible” and confirm by sight or a second detection.</p>
+  </section>
+
+  <!-- PHOTO -->
+  <section id="t-photo" class="stack" hidden>
+    <label class="drop" for="photoFile" id="photoDrop"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linejoin="round"><path d="M4 7h3l2-3h6l2 3h3v13H4z"/><circle cx="12" cy="13" r="4"/></svg>Take or choose a photo</label>
+    <input type="file" id="photoFile" accept="image/*" capture="environment" hidden>
+    <img id="photoPrev" class="photo-prev" alt="Your photo" hidden>
+    <input type="text" id="photoNote" placeholder="Optional: size, behaviour, where it was">
+    <button class="btn primary block" id="photoGo" disabled>Identify</button>
+    <div class="status" id="photoMsg" aria-live="polite"></div>
+    <div id="photoRes" class="stack"></div>
+    <h3>Claude API key <span id="keyState" style="text-transform:none"></span></h3>
+    <div class="group" id="keyBox">
+      <div class="cell" style="display:block;cursor:default"><p class="small muted" style="margin:0 0 10px">Photo ID uses Claude vision with your own Anthropic API key (console.anthropic.com). The key stays on this device and is sent only to api.anthropic.com. About 1–2 US cents per photo.</p>
+        <div class="stack" style="gap:8px"><input type="password" id="apiKey" placeholder="sk-ant-…" autocomplete="off" aria-label="API key">
+        <select id="apiModel" aria-label="Model"><option value="claude-sonnet-5-5">Claude Sonnet 5.5 (best)</option><option value="claude-haiku-5-5">Claude Haiku 5.5 (cheaper)</option></select>
+        <div class="row"><button class="btn sm primary" id="saveKey">Save key</button><button class="btn sm" id="clearKey">Remove</button></div></div></div>
+    </div>
+    <h3>Free alternatives</h3>
+    <div class="group">
+      <a class="cell" href="https://lens.google.com/" target="_blank" rel="noopener"><span class="grow">Google Lens<br><span class="small muted">Upload the same photo there</span></span><svg class="chev" width="8" height="14" viewBox="0 0 8 14"><path d="M1 1l6 6-6 6" stroke="currentColor" stroke-width="2" fill="none" stroke-linecap="round"/></svg></a>
+      <a class="cell" href="https://claude.ai/artifact/P76eHaCN52JjnoP95QZujY" target="_blank" rel="noopener"><span class="grow">Aves de Alem guide in Claude<br><span class="small muted">Photo ID with your Claude plan</span></span><svg class="chev" width="8" height="14" viewBox="0 0 8 14"><path d="M1 1l6 6-6 6" stroke="currentColor" stroke-width="2" fill="none" stroke-linecap="round"/></svg></a>
+    </div>
+  </section>
+
+  <!-- EXPLORE -->
+  <section id="t-explore" class="stack" hidden>
+    <div class="seg" role="group" aria-label="Source">
+      <button aria-pressed="true" data-src="inat">Recorded here</button>
+      <button aria-pressed="false" data-src="geo">This week</button>
+      <button aria-pressed="false" data-src="guide">Guide</button>
+    </div>
+    <input type="search" id="exploreQ" placeholder="Search" aria-label="Search birds">
+    <p class="small muted" id="exploreHint" style="margin:0 4px"></p>
+    <div id="exploreList" class="grid2"></div>
+    <button class="btn block" id="exploreMore" hidden>Show more</button>
+  </section>
+
+  <!-- COLLECTION (life list + game) -->
+  <section id="t-life" class="stack" hidden>
+    <div id="lifeHead" class="stack"></div>
+    <div class="seg" id="colSeg" role="group" aria-label="View"><button data-v="journal" aria-pressed="true">Journal</button><button data-v="collection" aria-pressed="false">Collection</button><button data-v="badges" aria-pressed="false">Badges</button></div>
+    <div id="lifeList" class="stack"></div>
+    <h3>Your data</h3>
+    <div class="group">
+      <button class="cell" id="backupBtn"><span class="grow">Back up everything<br><span class="small muted">Journal, photos, counts and level in one file</span></span><svg class="chev" width="8" height="14" viewBox="0 0 8 14"><path d="M1 1l6 6-6 6" stroke="currentColor" stroke-width="2" fill="none" stroke-linecap="round"/></svg></button>
+      <label class="cell" for="restoreFile"><span class="grow">Restore from a backup<br><span class="small muted">On a new phone, or after clearing the browser</span></span><svg class="chev" width="8" height="14" viewBox="0 0 8 14"><path d="M1 1l6 6-6 6" stroke="currentColor" stroke-width="2" fill="none" stroke-linecap="round"/></svg></label>
+      <input type="file" id="restoreFile" accept="application/json,.json" hidden>
+      <button class="cell" id="exportCsv"><span class="grow">Export journal as CSV<br><span class="small muted">Open in Excel or Google Sheets</span></span><svg class="chev" width="8" height="14" viewBox="0 0 8 14"><path d="M1 1l6 6-6 6" stroke="currentColor" stroke-width="2" fill="none" stroke-linecap="round"/></svg></button>
+    </div>
+    <p class="foot">No sign-up: your journal, photos and counts are stored on this phone. Back up regularly, and after installing the app to your home screen.</p>
+  </section>
+
+  <!-- LEARN -->
+  <section id="t-learn" class="stack" hidden>
+    <div class="seg" role="group" aria-label="Learn mode"><button aria-pressed="true" data-q="sound">Sound quiz</button><button aria-pressed="false" data-q="photo">Photo quiz</button><button aria-pressed="false" data-q="method">How to ID</button></div>
+    <div id="quizBox" class="card stack"></div>
+    <div id="methodBox" class="stack" hidden></div>
+    <h3>About</h3>
+    <details class="group"><summary class="cell"><span class="grow">Credits &amp; privacy</span><svg class="chev" width="8" height="14" viewBox="0 0 8 14"><path d="M1 1l6 6-6 6" stroke="currentColor" stroke-width="2" fill="none" stroke-linecap="round"/></svg></summary>
+      <div class="stack small" style="padding:12px 16px 16px">
+        <p style="margin:0"><b>Sound ID:</b> BirdNET V2.4 and its location model by the K. Lisa Yang Center for Conservation Bioacoustics (Cornell Lab of Ornithology) and Chemnitz University of Technology. Kahl, S., Wood, C. M., Eibl, M., &amp; Klinck, H. (2021). BirdNET: A deep learning solution for avian diversity monitoring. <i>Ecological Informatics</i>, 61, 101236. Model files served from the BirdNET-Team website repository (models CC BY-SA 4.0; worker code adapted from it, MIT). Personal, non-commercial use.</p>
+        <p style="margin:0"><b>Photos, sounds, local records:</b> iNaturalist community; each item shows its author and licence. Species summaries from Wikipedia (CC BY-SA) via iNaturalist.</p>
+        <p style="margin:0"><b>Photo ID:</b> Claude by Anthropic, with your own key. <b>Guide notes</b> for 55 species compiled from standard references (Narosky &amp; Yzurieta; Birds of the World); studies cited in place.</p>
+        <p style="margin:0"><b>Privacy:</b> no accounts, no analytics. Audio is analysed on the device. Location stays on the device and is only used for the location model and the iNaturalist query. Photos go to Anthropic only when you press Identify with your key.</p>
+      </div>
+    </details>
+  </section>
+</div>
+
+<nav class="tabs" aria-label="Main"><div class="in" role="tablist">
+  <button role="tab" data-t="sound" aria-selected="true"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"><rect class="f" x="9" y="3" width="6" height="11" rx="3"/><path d="M5 11a7 7 0 0 0 14 0M12 18v3"/></svg>Sound</button>
+  <button role="tab" data-t="photo" aria-selected="false"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linejoin="round"><path class="f" d="M4 7h3l2-3h6l2 3h3v13H4z"/><circle cx="12" cy="13" r="4" fill="var(--bar)"/></svg>Photo</button>
+  <button role="tab" data-t="explore" aria-selected="false"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><circle class="f" cx="11" cy="11" r="7"/><path d="m20 20-4-4" stroke-linecap="round"/></svg>Explore</button>
+  <button role="tab" data-t="life" aria-selected="false"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"><path d="M9 6h11M9 12h11M9 18h11"/><circle class="f" cx="4.5" cy="6" r="1.5"/><circle class="f" cx="4.5" cy="12" r="1.5"/><circle class="f" cx="4.5" cy="18" r="1.5"/></svg>Collection</button>
+  <button role="tab" data-t="learn" aria-selected="false"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linejoin="round"><path class="f" d="M2 8l10-5 10 5-10 5z"/><path d="M6 10v5c3 3 9 3 12 0v-5" stroke-linecap="round"/></svg>Learn</button>
+</div></nav>
+
+<div class="backdrop" id="backdrop"></div>
+<div class="sheet" id="sheet" role="dialog" aria-modal="true" aria-label="Details"><div class="grabber"></div><div class="in" id="sheetIn"></div></div>
+
+<script src="./guide.js"></script>
+<script src="./app.js"></script>
+
+</body>
+</html>
